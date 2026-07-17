@@ -1,0 +1,22 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{20} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Default: suppress most logging for clean CLI output -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <!-- Per-category configuration -->
+    <logger name="com.executionstudio.compiler" level="INFO"/>
+    <logger name="com.executionstudio.launcher" level="INFO"/>
+    <logger name="com.executionstudio.jdi.capture" level="INFO"/>
+    <logger name="com.executionstudio.trace.builder" level="INFO"/>
+    <logger name="com.executionstudio.serializer" level="INFO"/>
+    <logger name="com.executionstudio.watchdog" level="INFO"/>
+    <logger name="com.executionstudio.statistics" level="INFO"/>
+</configuration>
