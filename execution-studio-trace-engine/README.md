@@ -1,149 +1,79 @@
-# Execution Studio — Trace Engine (Spike 01)
+# Execution Studio — Trace Engine & Playback Engine
+
+A modular Java developer toolkit designed for program execution visualization.
+
+---
+
+## 1. Trace Engine (Spike 01)
 
 A standalone Java CLI tool that compiles a `.java` source file, executes it under the Java Debug Interface (JDI), and produces a complete **Execution Trace** as a JSON file — capturing, at every executed line, the call stack, local variables, and heap object/array state.
 
-## Quick Start
+### Quick Start
 
-### Prerequisites
-
-- **JDK 17** or later (must be a full JDK, not a JRE)
+#### Prerequisites
+- **JDK 21** or later (must be a full JDK, not a JRE)
 - The `JAVA_HOME` environment variable must point to the JDK
 
-### Build
-
+#### Build
 ```bash
 ./gradlew shadowJar
 ```
-
 This produces `build/libs/trace-engine.jar`.
 
-### Run
-
+#### Run
 ```bash
 java -jar build/libs/trace-engine.jar <source.java> <output-trace.json>
 ```
 
 **Example:**
-
 ```bash
 java -jar build/libs/trace-engine.jar src/test/resources/fixtures/Sample.java output/trace.json
 ```
 
-### Options
-
+#### Options
 | Option | Default | Description |
 |---|---|---|
 | `--step-limit <N>` | 50000 | Maximum execution steps before watchdog termination |
 | `--timeout <seconds>` | 10 | Maximum wall-clock execution time |
 | `--log-level <level>` | INFO | Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR) |
 
-### Run Tests
+---
 
+## 2. Playback Engine (Spike 02)
+
+An immutable, JDI-independent timeline navigation engine that reconstructs the complete execution state at any step index using only the serialized `ExecutionTrace`.
+
+```text
+ExecutionTrace.json → TraceLoader → PlaybackSession ── Timeline
+                                                    └── PlaybackEngine → ExecutionStateBuilder → ExecutionState
+```
+
+### Core Architecture Components
+
+- **PlaybackSession**: Root container managing trace state, step pointer (`Timeline`), playback progress (`PlaybackMetadata`), and current `ExecutionState`.
+- **Timeline**: Index-based navigator decoupled from execution models.
+- **PlaybackEngine**: Coordinates stepping commands and delegates state assembly to the builder.
+- **ExecutionStateBuilder**: Reconstructs the stack layout, variable evaluations, and object graphs into pure state models.
+- **TraceValidator**: Semantic trace validator enforcing monotonic sequence progression, array length bounds, non-null properties, and broken object references.
+
+### Program State Hierarchy (`ExecutionState`)
+
+The playback state is fully decoupled from live capture proxy entities:
+```text
+ExecutionState
+  ├── position (CurrentPosition: sourceFile, lineNumber)
+  ├── stack (StackState: List of FrameState (class, method, line, Locals List))
+  ├── heap (HeapState: Map of object ID String to JDI-independent HeapObject)
+  └── context (ExecutionStateContext: currentClass, currentMethod, currentEventIndex, exception details)
+```
+
+---
+
+## 3. Run Verification Tests
+To run all unit tests, integration tests, and validations for both Spike 01 and Spike 02:
 ```bash
 ./gradlew test
 ```
 
-## Output Format
-
-The trace is a JSON file with the following structure:
-
-```json
-{
-  "schemaVersion": "1.0.0",
-  "metadata": {
-    "generatedAt": "2026-07-15T19:00:00Z",
-    "toolVersion": "0.1.0",
-    "javaVersion": "17.0.x",
-    "sourceFile": "Sample.java",
-    "mainClass": "Sample",
-    "executionDurationMs": 1234,
-    "terminationReason": "normal_exit",
-    "totalEvents": 42,
-    "totalObjects": 5,
-    "totalFrames": 42
-  },
-  "events": [
-    {
-      "seq": 0,
-      "type": "line",
-      "sourceFile": "Sample.java",
-      "className": "Sample",
-      "methodName": "main",
-      "lineNumber": 7,
-      "callStack": [...],
-      "heap": { "obj_1": {...} }
-    }
-  ],
-  "statistics": {
-    "maxCallStackDepth": 3,
-    "uniqueMethodsExecuted": 3,
-    "loopIterationsDetected": 3,
-    "objectsCreated": 4,
-    "arraysCreated": 2
-  }
-}
-```
-
-### Event Types
-
-| Type | Description |
-|---|---|
-| `line` | A normal execution step at a source line |
-| `exception` | An uncaught exception terminated execution |
-
-### Value Kinds
-
-| Kind | Example | Description |
-|---|---|---|
-| `int` | `{"kind":"int","value":42}` | Integer value |
-| `long` | `{"kind":"long","value":100000}` | Long value |
-| `float` | `{"kind":"float","value":3.14}` | Float value |
-| `double` | `{"kind":"double","value":2.718}` | Double value |
-| `boolean` | `{"kind":"boolean","value":true}` | Boolean value |
-| `char` | `{"kind":"char","value":"A"}` | Character value |
-| `string` | `{"kind":"string","value":"hello","objectId":"obj_5"}` | String value with object identity |
-| `null` | `{"kind":"null"}` | Null reference |
-| `object_ref` | `{"kind":"object_ref","objectId":"obj_3"}` | Reference to an object in the heap |
-| `array_ref` | `{"kind":"array_ref","objectId":"obj_2"}` | Reference to an array in the heap |
-
-### Termination Reasons
-
-| Reason | Description |
-|---|---|
-| `normal_exit` | Program terminated normally |
-| `uncaught_exception` | Program threw an uncaught exception |
-| `step_cap_exceeded` | Watchdog step limit was reached |
-| `timeout` | Watchdog wall-clock timeout was reached |
-
-## Architecture
-
-```
-CLI → Compiler → Launcher → JDI Debug Session → Capture Strategy → Trace Builder → Serializer
-                                                        ↓
-                                                  Runtime Events (DTOs)
-                                                        ↓
-                                                  Execution Trace (JSON)
-```
-
-### Key Design Principles
-
-1. **JDI Isolation:** All JDI imports are confined to the `jdi.capture` package. No JDI type escapes this boundary.
-2. **Full Snapshot Mode:** Each event carries a complete heap snapshot of all referenced objects. Simple, correct, debuggable.
-3. **Synthetic Object IDs:** JDI's internal object IDs are remapped to stable `"obj_N"` identifiers, enabling future reference visualization.
-4. **User Class Filtering:** Only user-defined classes are traced; JDK internals are skipped.
-5. **Interface-First Design:** All major components are accessed through interfaces, enabling future engine swaps.
-
-## Sample Program
-
-The primary test fixture (`src/test/resources/fixtures/Sample.java`) exercises:
-
-- Variable creation and update
-- Array creation and iteration
-- Loop execution (3 iterations)
-- Static method call (`square()`)
-- Object construction (`new Point()`)
-- Field access (`p.x`)
-
 ## License
-
 Internal development tool — Execution Studio project.
