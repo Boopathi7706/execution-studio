@@ -2,6 +2,7 @@ import React from 'react'
 import SplitPane from '@/components/SplitPane'
 import { Card } from '@/components/Card'
 import { useLayoutStore } from '@/store/useLayoutStore'
+import TimelinePanel from '@/features/timeline/TimelinePanel'
 
 /**
  * High-level layout workspace container.
@@ -29,12 +30,12 @@ export const WorkspaceContainer: React.FC = () => {
           <p>Monaco Code Editor placeholder card</p>
         </div>
       </div>
-      <div className="workspace-panel" style={{ height: '120px' }}>
+      <div className="workspace-panel" style={{ height: '160px' }}>
         <div className="panel-header">
           <span>Timeline Navigation Controls</span>
         </div>
         <div className="panel-body">
-          <p>Timeline Playback scrubber placeholder card</p>
+          <TimelinePanel />
         </div>
       </div>
     </div>
