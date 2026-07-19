@@ -59,7 +59,8 @@ export class HttpClient {
       }
 
       const detailsObj = details as Record<string, unknown>
-      const msg = (detailsObj?.message as string) || `HTTP error ${response.status}: ${response.statusText}`
+      const msg =
+        (detailsObj?.message as string) || `HTTP error ${response.status}: ${response.statusText}`
       throw new PlaybackApiError(response.status, msg, code, details)
     }
 
@@ -74,7 +75,11 @@ export class HttpClient {
     return this.request<T>(path, { ...options, method: 'GET' })
   }
 
-  public post<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
+  public post<T>(
+    path: string,
+    body?: unknown,
+    options?: Omit<RequestOptions, 'method' | 'body'>,
+  ): Promise<T> {
     return this.request<T>(path, { ...options, method: 'POST', body })
   }
 }

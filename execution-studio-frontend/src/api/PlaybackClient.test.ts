@@ -10,19 +10,24 @@ const mockModel: VisualizationModel = {
   heap: { objects: {} },
   variables: { variables: [] },
   graph: { nodes: [], edges: [] },
-  highlights: { currentLine: 1, currentMethod: 'main', currentStackFrame: 'Main', activeHighlights: [] },
-  status: 'RUNNING'
+  highlights: {
+    currentLine: 1,
+    currentMethod: 'main',
+    currentStackFrame: 'Main',
+    activeHighlights: [],
+  },
+  status: 'RUNNING',
 }
 
 const mockMetadata: PlaybackMetadata = {
   currentStepIndex: 5,
   totalSteps: 10,
-  progressPercentage: 50
+  progressPercentage: 50,
 }
 
 const mockPlaybackResponse: PlaybackResponse = {
   model: mockModel,
-  metadata: mockMetadata
+  metadata: mockMetadata,
 }
 
 describe('HttpClient', () => {
@@ -40,7 +45,7 @@ describe('HttpClient', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => mockPlaybackResponse
+      json: async () => mockPlaybackResponse,
     } as Response)
 
     const client = new HttpClient('http://localhost:8080')
@@ -51,8 +56,8 @@ describe('HttpClient', () => {
       'http://localhost:8080/api/test',
       expect.objectContaining({
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      })
+        headers: { 'Content-Type': 'application/json' },
+      }),
     )
   })
 
@@ -60,7 +65,7 @@ describe('HttpClient', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => mockPlaybackResponse
+      json: async () => mockPlaybackResponse,
     } as Response)
 
     const client = new HttpClient('http://localhost:8080')
@@ -72,8 +77,8 @@ describe('HttpClient', () => {
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'value' })
-      })
+        body: JSON.stringify({ key: 'value' }),
+      }),
     )
   })
 
@@ -82,13 +87,13 @@ describe('HttpClient', () => {
       ok: false,
       status: 400,
       statusText: 'Bad Request',
-      text: async () => JSON.stringify({ message: 'Invalid index', code: 'ERR_INVALID_INDEX' })
+      text: async () => JSON.stringify({ message: 'Invalid index', code: 'ERR_INVALID_INDEX' }),
     } as Response)
 
     const client = new HttpClient('http://localhost:8080')
 
     await expect(client.get('/api/test')).rejects.toThrow(PlaybackApiError)
-    
+
     try {
       await client.get('/api/test')
     } catch (err: unknown) {
@@ -115,7 +120,9 @@ describe('HttpClient', () => {
 
     const client = new HttpClient('http://localhost:8080')
 
-    await expect(client.get('/api/test', { signal: controller.signal })).rejects.toThrow('The user aborted a request.')
+    await expect(client.get('/api/test', { signal: controller.signal })).rejects.toThrow(
+      'The user aborted a request.',
+    )
   })
 })
 
@@ -137,7 +144,7 @@ describe('PlaybackClient', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => mockPlaybackResponse
+      json: async () => mockPlaybackResponse,
     } as Response)
 
     const result = await playbackClient.loadSession('session-123')
@@ -147,8 +154,8 @@ describe('PlaybackClient', () => {
       `${baseUrl}/api/sessions/load`,
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ sessionId: 'session-123' })
-      })
+        body: JSON.stringify({ sessionId: 'session-123' }),
+      }),
     )
   })
 
@@ -156,7 +163,7 @@ describe('PlaybackClient', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => mockPlaybackResponse
+      json: async () => mockPlaybackResponse,
     } as Response)
 
     const result = await playbackClient.stepForward('session-123')
@@ -165,8 +172,8 @@ describe('PlaybackClient', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith(
       `${baseUrl}/api/sessions/session-123/step-forward`,
       expect.objectContaining({
-        method: 'POST'
-      })
+        method: 'POST',
+      }),
     )
   })
 
@@ -174,7 +181,7 @@ describe('PlaybackClient', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => mockPlaybackResponse
+      json: async () => mockPlaybackResponse,
     } as Response)
 
     const result = await playbackClient.stepBackward('session-123')
@@ -183,8 +190,8 @@ describe('PlaybackClient', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith(
       `${baseUrl}/api/sessions/session-123/step-backward`,
       expect.objectContaining({
-        method: 'POST'
-      })
+        method: 'POST',
+      }),
     )
   })
 
@@ -192,7 +199,7 @@ describe('PlaybackClient', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => mockPlaybackResponse
+      json: async () => mockPlaybackResponse,
     } as Response)
 
     const result = await playbackClient.seek('session-123', 5)
@@ -202,8 +209,8 @@ describe('PlaybackClient', () => {
       `${baseUrl}/api/sessions/session-123/seek`,
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ index: 5 })
-      })
+        body: JSON.stringify({ index: 5 }),
+      }),
     )
   })
 
@@ -211,7 +218,7 @@ describe('PlaybackClient', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => mockPlaybackResponse
+      json: async () => mockPlaybackResponse,
     } as Response)
 
     const result = await playbackClient.restart('session-123')
@@ -220,8 +227,8 @@ describe('PlaybackClient', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith(
       `${baseUrl}/api/sessions/session-123/restart`,
       expect.objectContaining({
-        method: 'POST'
-      })
+        method: 'POST',
+      }),
     )
   })
 })
