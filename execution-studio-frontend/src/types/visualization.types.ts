@@ -82,3 +82,10 @@ export interface VisualizationModel {
 export interface VariablesView {
   variables: VariableView[]
 }
+
+import type { PlaybackMetadata } from './metadata.types'
+
+export interface PlaybackResponse {
+  model: VisualizationModel
+  metadata: PlaybackMetadata
+}
