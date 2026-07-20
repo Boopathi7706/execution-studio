@@ -6,6 +6,7 @@ import TimelinePanel from '@/features/timeline/TimelinePanel'
 import SourceViewerPanel from '@/features/source-viewer/SourceViewerPanel'
 import CallStackPanel from '@/features/stack/CallStackPanel'
 import VariablesPanel from '@/features/variables/VariablesPanel'
+import HeapViewContainer from '@/features/heap/HeapViewContainer'
 
 /**
  * High-level layout workspace container.
@@ -62,7 +63,7 @@ export const WorkspaceContainer: React.FC = () => {
           <VariablesPanel />
         </Card>
         <Card title="Heap Memory Visualizer">
-          <p>Heap Object Graph reference graph placeholder card</p>
+          <HeapViewContainer />
         </Card>
       </div>
     </div>
