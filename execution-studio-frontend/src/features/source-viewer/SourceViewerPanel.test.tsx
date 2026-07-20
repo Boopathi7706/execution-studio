@@ -23,12 +23,16 @@ vi.mock('@monaco-editor/react', () => {
       }
       const mockMonaco = {
         Range: class {
-          constructor(
-            public startLine: number,
-            public startCol: number,
-            public endLine: number,
-            public endCol: number,
-          ) {}
+          startLine: number
+          startCol: number
+          endLine: number
+          endCol: number
+          constructor(startLine: number, startCol: number, endLine: number, endCol: number) {
+            this.startLine = startLine
+            this.startCol = startCol
+            this.endLine = endLine
+            this.endCol = endCol
+          }
         },
       }
       if (onMount) {

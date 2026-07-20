@@ -4,6 +4,7 @@ import { Card } from '@/components/Card'
 import { useLayoutStore } from '@/store/useLayoutStore'
 import TimelinePanel from '@/features/timeline/TimelinePanel'
 import SourceViewerPanel from '@/features/source-viewer/SourceViewerPanel'
+import CallStackPanel from '@/features/stack/CallStackPanel'
 
 /**
  * High-level layout workspace container.
@@ -54,7 +55,7 @@ export const WorkspaceContainer: React.FC = () => {
     >
       <div className="placeholders-grid">
         <Card title="Call Stack">
-          <p>Call Stack Frames placeholder card</p>
+          <CallStackPanel />
         </Card>
         <Card title="Local Variables">
           <p>Local Variables table placeholder card</p>
@@ -80,4 +81,3 @@ export const WorkspaceContainer: React.FC = () => {
   )
 }
 export default WorkspaceContainer
-// Note: We keep export default so that App.tsx can cleanly import it.
