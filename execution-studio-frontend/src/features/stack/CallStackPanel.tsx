@@ -9,6 +9,8 @@ import FrameCard from './FrameCard'
 export const CallStackPanel: React.FC = () => {
   const currentModel = usePlaybackStore((state) => state.currentModel)
   const connectionStatus = usePlaybackStore((state) => state.connectionStatus)
+  const selectedFrameIndex = usePlaybackStore((state) => state.selectedFrameIndex)
+  const setSelectedFrameIndex = usePlaybackStore((state) => state.setSelectedFrameIndex)
 
   const isConnected = connectionStatus === 'CONNECTED'
   const frames = isConnected && currentModel?.stack ? currentModel.stack.frames : []
@@ -47,15 +49,17 @@ export const CallStackPanel: React.FC = () => {
       {frames.map((frame, index) => {
         // Frame depth is displayed relative to bottom of stack (main = #0)
         const depth = frames.length - 1 - index
-        // Active frame is the top executing frame (usually index 0)
-        const isActive = index === 0 || frame.isActive
+        // Highlight active frame based on selection or top-frame fallback
+        const isHighlighted =
+          selectedFrameIndex !== null ? selectedFrameIndex === index : index === 0 || frame.isActive
 
         return (
           <FrameCard
             key={`${frame.className}-${frame.methodName}-${index}`}
             frame={frame}
-            isActive={isActive}
+            isActive={isHighlighted}
             depth={depth}
+            onClick={() => setSelectedFrameIndex(index)}
           />
         )
       })}

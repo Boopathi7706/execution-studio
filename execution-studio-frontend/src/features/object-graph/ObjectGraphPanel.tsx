@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react'
+import React, { useRef, useEffect, useMemo } from 'react'
 import cytoscape from 'cytoscape'
 import { usePlaybackStore } from '@/store/usePlaybackStore'
 import type { HeapObjectView } from '@/types/visualization.types'
@@ -32,8 +32,8 @@ export const ObjectGraphPanel: React.FC = () => {
   const cyRef = useRef<cytoscape.Core | null>(null)
   const currentModel = usePlaybackStore((state) => state.currentModel)
   const connectionStatus = usePlaybackStore((state) => state.connectionStatus)
-
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const selectedObjectId = usePlaybackStore((state) => state.selectedObjectId)
+  const setSelectedObjectId = usePlaybackStore((state) => state.setSelectedObjectId)
 
   const isConnected = connectionStatus === 'CONNECTED'
 
@@ -147,42 +147,50 @@ export const ObjectGraphPanel: React.FC = () => {
 
     cyRef.current = cy
 
-    // Event listener: node selection updates details panel
+    // Event listener: node selection updates details panel in global store
     cy.on('tap', 'node', (evt) => {
       const node = evt.target
-      setSelectedNodeId(node.id())
+      setSelectedObjectId(node.id())
     })
 
     // Event listener: tap background clears selection
     cy.on('tap', (evt) => {
       if (evt.target === cy) {
-        setSelectedNodeId(null)
+        setSelectedObjectId(null)
       }
     })
+
+    // Pre-select active selected node if set originally
+    if (selectedObjectId) {
+      const node = cy.getElementById(selectedObjectId)
+      if (node.length > 0) {
+        node.select()
+      }
+    }
 
     return () => {
       cy.destroy()
       cyRef.current = null
     }
-  }, [nodes, edges, isConnected])
+  }, [nodes, edges, isConnected, selectedObjectId, setSelectedObjectId])
 
   // 3. React to selection adjustments without rebuilds
   useEffect(() => {
     const cy = cyRef.current
     if (cy) {
       cy.nodes().unselect()
-      if (selectedNodeId) {
-        const node = cy.getElementById(selectedNodeId)
+      if (selectedObjectId) {
+        const node = cy.getElementById(selectedObjectId)
         if (node.length > 0) {
           node.select()
         }
       }
     }
-  }, [selectedNodeId])
+  }, [selectedObjectId])
 
   const selectedObj =
-    selectedNodeId && objects !== EMPTY_OBJECTS
-      ? (objects as Record<string, HeapObjectView>)[selectedNodeId]
+    selectedObjectId && objects !== EMPTY_OBJECTS
+      ? (objects as Record<string, HeapObjectView>)[selectedObjectId]
       : null
   const fields = selectedObj?.fieldsOrElements || {}
   const fieldKeys = Object.keys(fields)

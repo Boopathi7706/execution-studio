@@ -14,6 +14,8 @@ interface PlaybackState {
   connectionStatus: 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING'
   error: string | null
   cache: Record<number, VisualizationModel>
+  selectedObjectId: string | null
+  selectedFrameIndex: number | null
 
   // Internal references
   client: PlaybackClient
@@ -30,6 +32,8 @@ interface PlaybackState {
   restart: () => Promise<void>
   clearError: () => void
   destroy: () => void
+  setSelectedObjectId: (id: string | null) => void
+  setSelectedFrameIndex: (index: number | null) => void
 }
 
 /**
@@ -92,6 +96,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     client: new PlaybackClient(),
     playTimerId: null,
     abortController: null,
+    selectedObjectId: null,
+    selectedFrameIndex: null,
 
     // Actions
     loadSession: async (sessionId: string) => {
@@ -107,6 +113,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         previousModel: null,
         metadata: null,
         isPlaying: false,
+        selectedObjectId: null,
+        selectedFrameIndex: null,
       })
 
       const controller = new AbortController()
@@ -149,6 +157,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         set({
           previousModel: currentModel,
           currentModel: cache[nextIndex],
+          selectedObjectId: null,
+          selectedFrameIndex: null,
           metadata: {
             ...metadata,
             currentStepIndex: nextIndex,
@@ -170,6 +180,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
           previousModel: currentModel,
           currentModel: response.model,
           metadata: response.metadata,
+          selectedObjectId: null,
+          selectedFrameIndex: null,
           cache: {
             ...cache,
             [nextIndex]: response.model,
@@ -200,6 +212,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         set({
           previousModel: cache[prevIndex - 1] || null,
           currentModel: cache[prevIndex],
+          selectedObjectId: null,
+          selectedFrameIndex: null,
           metadata: {
             ...metadata,
             currentStepIndex: prevIndex,
@@ -220,6 +234,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
           previousModel: cache[prevIndex - 1] || null,
           currentModel: response.model,
           metadata: response.metadata,
+          selectedObjectId: null,
+          selectedFrameIndex: null,
           cache: {
             ...cache,
             [prevIndex]: response.model,
@@ -248,6 +264,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         set({
           previousModel: cache[index - 1] || null,
           currentModel: cache[index],
+          selectedObjectId: null,
+          selectedFrameIndex: null,
           metadata: {
             ...metadata,
             currentStepIndex: index,
@@ -268,6 +286,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
           previousModel: cache[index - 1] || null,
           currentModel: response.model,
           metadata: response.metadata,
+          selectedObjectId: null,
+          selectedFrameIndex: null,
           cache: {
             ...cache,
             [index]: response.model,
@@ -317,6 +337,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
           currentModel: cache[0],
           previousModel: null,
           isPlaying: false,
+          selectedObjectId: null,
+          selectedFrameIndex: null,
         })
         if (get().metadata) {
           set({
@@ -338,6 +360,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
           currentModel: response.model,
           previousModel: null,
           metadata: response.metadata,
+          selectedObjectId: null,
+          selectedFrameIndex: null,
           cache: {
             ...cache,
             0: response.model,
@@ -357,6 +381,10 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
 
     clearError: () => set({ error: null }),
 
+    setSelectedObjectId: (id: string | null) => set({ selectedObjectId: id }),
+
+    setSelectedFrameIndex: (index: number | null) => set({ selectedFrameIndex: index }),
+
     destroy: () => {
       clearActiveTimer()
       cancelPendingRequest()
@@ -371,6 +399,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         error: null,
         cache: {},
         abortController: null,
+        selectedObjectId: null,
+        selectedFrameIndex: null,
       })
     },
   }

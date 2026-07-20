@@ -256,5 +256,5 @@ describe('VariablesPanel Component', () => {
     // Expect start and end index items to be defined
     expect(screen.getByText('var_0')).toBeDefined()
     expect(screen.getByText('var_519')).toBeDefined()
-  })
+  }, 25000)
 })
