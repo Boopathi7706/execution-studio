@@ -3,6 +3,7 @@ import SplitPane from '@/components/SplitPane'
 import { Card } from '@/components/Card'
 import { useLayoutStore } from '@/store/useLayoutStore'
 import TimelinePanel from '@/features/timeline/TimelinePanel'
+import SourceViewerPanel from '@/features/source-viewer/SourceViewerPanel'
 
 /**
  * High-level layout workspace container.
@@ -26,8 +27,8 @@ export const WorkspaceContainer: React.FC = () => {
         <div className="panel-header">
           <span>Source Code Viewer</span>
         </div>
-        <div className="panel-body">
-          <p>Monaco Code Editor placeholder card</p>
+        <div className="panel-body" style={{ padding: 0, overflow: 'hidden', display: 'flex' }}>
+          <SourceViewerPanel />
         </div>
       </div>
       <div className="workspace-panel" style={{ height: '160px' }}>

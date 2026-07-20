@@ -112,3 +112,18 @@
   gap: 16px;
   height: 100%;
 }
+
+/* Monaco Line Highlighting Decorations */
+.active-execution-line-highlight {
+  background-color: rgba(168, 85, 247, 0.18) !important;
+  border-left: 3px solid var(--accent-color) !important;
+}
+
+.active-execution-line-glyph {
+  background-color: var(--accent-secondary);
+  border-radius: 50%;
+  width: 8px !important;
+  height: 8px !important;
+  margin-top: 4px;
+  margin-left: 4px;
+}
