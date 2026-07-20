@@ -5,6 +5,7 @@ import { useLayoutStore } from '@/store/useLayoutStore'
 import TimelinePanel from '@/features/timeline/TimelinePanel'
 import SourceViewerPanel from '@/features/source-viewer/SourceViewerPanel'
 import CallStackPanel from '@/features/stack/CallStackPanel'
+import VariablesPanel from '@/features/variables/VariablesPanel'
 
 /**
  * High-level layout workspace container.
@@ -58,7 +59,7 @@ export const WorkspaceContainer: React.FC = () => {
           <CallStackPanel />
         </Card>
         <Card title="Local Variables">
-          <p>Local Variables table placeholder card</p>
+          <VariablesPanel />
         </Card>
         <Card title="Heap Memory Visualizer">
           <p>Heap Object Graph reference graph placeholder card</p>

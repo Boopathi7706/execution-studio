@@ -127,3 +127,17 @@
   margin-top: 4px;
   margin-left: 4px;
 }
+
+/* Variables Row Highlighting flash animation */
+@keyframes variable-row-flash-anim {
+  0% {
+    background-color: rgba(168, 85, 247, 0.35);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.variable-row-flash {
+  animation: variable-row-flash-anim 1s ease-out;
+}
