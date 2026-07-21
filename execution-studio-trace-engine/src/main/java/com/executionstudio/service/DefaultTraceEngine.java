@@ -77,10 +77,18 @@ public class DefaultTraceEngine implements TraceEngine {
             Path outputFile = request.getOutputDirectory().resolve(request.getClassName() + "-trace.json");
 
             // Build config with sensible defaults
-            EngineConfig config = EngineConfig.builder()
+            EngineConfig.Builder configBuilder = EngineConfig.builder()
                 .sourceFile(request.getSourceFile())
-                .outputFile(outputFile)
-                .build();
+                .outputFile(outputFile);
+
+            if (request.getStepLimit() != null) {
+                configBuilder.stepLimit(request.getStepLimit());
+            }
+            if (request.getTimeoutSeconds() != null) {
+                configBuilder.timeoutSeconds(request.getTimeoutSeconds());
+            }
+
+            EngineConfig config = configBuilder.build();
 
             // === Phase 1: Compile ===
             log.info("Compiling source: {}", config.getSourceFile().getFileName());

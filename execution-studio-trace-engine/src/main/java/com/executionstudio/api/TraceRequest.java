@@ -12,11 +12,15 @@ public final class TraceRequest {
     private final Path sourceFile;
     private final String className;
     private final Path outputDirectory;
+    private final Integer stepLimit;
+    private final Integer timeoutSeconds;
 
     private TraceRequest(Builder builder) {
         this.sourceFile = Objects.requireNonNull(builder.sourceFile, "sourceFile must not be null");
         this.className = Objects.requireNonNull(builder.className, "className must not be null");
         this.outputDirectory = Objects.requireNonNull(builder.outputDirectory, "outputDirectory must not be null");
+        this.stepLimit = builder.stepLimit;
+        this.timeoutSeconds = builder.timeoutSeconds;
     }
 
     public Path getSourceFile() {
@@ -31,6 +35,14 @@ public final class TraceRequest {
         return outputDirectory;
     }
 
+    public Integer getStepLimit() {
+        return stepLimit;
+    }
+
+    public Integer getTimeoutSeconds() {
+        return timeoutSeconds;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -39,6 +51,8 @@ public final class TraceRequest {
         private Path sourceFile;
         private String className;
         private Path outputDirectory;
+        private Integer stepLimit;
+        private Integer timeoutSeconds;
 
         public Builder sourceFile(Path sourceFile) {
             this.sourceFile = sourceFile;
@@ -52,6 +66,16 @@ public final class TraceRequest {
 
         public Builder outputDirectory(Path outputDirectory) {
             this.outputDirectory = outputDirectory;
+            return this;
+        }
+
+        public Builder stepLimit(Integer stepLimit) {
+            this.stepLimit = stepLimit;
+            return this;
+        }
+
+        public Builder timeoutSeconds(Integer timeoutSeconds) {
+            this.timeoutSeconds = timeoutSeconds;
             return this;
         }
 
