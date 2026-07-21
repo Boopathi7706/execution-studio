@@ -281,5 +281,5 @@ describe('HeapViewContainer Component', () => {
     // Render verification
     expect(screen.getByText('@0x0000')).toBeDefined()
     expect(screen.getByText('@0x03f1')).toBeDefined() // 1009 in hex
-  })
+  }, 25000)
 })

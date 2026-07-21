@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useRef, useEffect } from 'react'
 import type { HeapObjectView, DisplayValue, VisualizationModel } from '@/types/visualization.types'
+import { usePlaybackStore } from '@/store/usePlaybackStore'
 import HeapFieldRow from './HeapFieldRow'
 
 interface HeapCardProps {
@@ -29,25 +30,53 @@ const checkFieldChanged = (
 /**
  * A memoized Heap Object Debugger Card component.
  * Displays object type header and loops fields in a list.
+ * Integrates synchronized selection highlights, click triggers, and auto scrolling.
  */
 export const HeapCard: React.FC<HeapCardProps> = React.memo(({ obj, previousModel }) => {
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  const selectedObjectId = usePlaybackStore((state) => state.selectedObjectId)
+  const setSelectedObjectId = usePlaybackStore((state) => state.setSelectedObjectId)
+
+  const isSelected = selectedObjectId === obj.objectId
   const fields = obj.fieldsOrElements || {}
   const keys = Object.keys(fields)
 
+  useEffect(() => {
+    if (isSelected && cardRef.current) {
+      cardRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      })
+    }
+  }, [isSelected])
+
+  const handleCardClick = () => {
+    if (isSelected) {
+      setSelectedObjectId(null)
+    } else {
+      setSelectedObjectId(obj.objectId)
+    }
+  }
+
   return (
     <div
+      ref={cardRef}
+      onClick={handleCardClick}
       style={{
-        backgroundColor: 'var(--bg-tertiary)',
-        border: '1px solid var(--border-color)',
+        backgroundColor: isSelected ? 'rgba(168, 85, 247, 0.08)' : 'var(--bg-tertiary)',
+        border: isSelected ? '1.5px solid var(--accent-color)' : '1px solid var(--border-color)',
         borderRadius: '6px',
         padding: '12px',
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
-        boxShadow: 'var(--shadow-sm)',
+        boxShadow: isSelected ? '0 0 8px rgba(168, 85, 247, 0.3)' : 'var(--shadow-sm)',
         minWidth: '220px',
+        cursor: 'pointer',
+        transition: 'all var(--transition-fast)',
       }}
       className="heap-card"
+      aria-selected={isSelected}
     >
       {/* Card Header showing type name and address ID */}
       <div
@@ -57,7 +86,7 @@ export const HeapCard: React.FC<HeapCardProps> = React.memo(({ obj, previousMode
           fontWeight: 'bold',
           fontSize: '13px',
           fontFamily: 'var(--font-mono)',
-          color: 'var(--text-primary)',
+          color: isSelected ? 'var(--accent-secondary)' : 'var(--text-primary)',
           display: 'flex',
           justifyContent: 'space-between',
         }}

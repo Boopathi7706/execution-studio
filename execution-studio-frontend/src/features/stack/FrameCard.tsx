@@ -5,6 +5,7 @@ interface FrameCardProps {
   frame: FrameView
   isActive: boolean
   depth: number
+  onClick?: () => void
 }
 
 /**
@@ -22,90 +23,98 @@ function getSourceFileName(className: string): string {
 /**
  * A memoized presentational frame card representing a single Java call stack frame.
  * Handles automatic scroll-into-view adjustments when designated as active.
+ * Exposes onClick callback for stack selection synchronization.
  */
-export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive, depth }) => {
-  const cardRef = useRef<HTMLDivElement | null>(null)
-  const sourceFile = getSourceFileName(frame.className)
+export const FrameCard: React.FC<FrameCardProps> = React.memo(
+  ({ frame, isActive, depth, onClick }) => {
+    const cardRef = useRef<HTMLDivElement | null>(null)
+    const sourceFile = getSourceFileName(frame.className)
 
-  useEffect(() => {
-    if (isActive && cardRef.current) {
-      // Automatically scroll active frame card into view inside its container
-      cardRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-      })
+    useEffect(() => {
+      if (isActive && cardRef.current) {
+        // Automatically scroll active frame card into view inside its container
+        cardRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+        })
+      }
+    }, [isActive])
+
+    const cardStyle: React.CSSProperties = {
+      padding: '10px 14px',
+      backgroundColor: isActive ? 'var(--accent-bg)' : 'transparent',
+      borderLeft: isActive ? '3px solid var(--accent-color)' : '3px solid transparent',
+      borderBottom: '1px solid var(--border-color)',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      transition: 'background-color var(--transition-fast)',
     }
-  }, [isActive])
 
-  const cardStyle: React.CSSProperties = {
-    padding: '10px 14px',
-    backgroundColor: isActive ? 'var(--accent-bg)' : 'transparent',
-    borderLeft: isActive ? '3px solid var(--accent-color)' : '3px solid transparent',
-    borderBottom: '1px solid var(--border-color)',
-    cursor: 'default',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    transition: 'background-color var(--transition-fast)',
-  }
-
-  return (
-    <div ref={cardRef} style={cardStyle} className={`frame-card ${isActive ? 'active' : ''}`}>
-      {/* Active Indicator Arrow Gutter */}
+    return (
       <div
-        style={{
-          width: '12px',
-          color: 'var(--accent-color)',
-          fontSize: '11px',
-          display: 'flex',
-          justifyContent: 'center',
-        }}
+        ref={cardRef}
+        style={cardStyle}
+        onClick={onClick}
+        className={`frame-card ${isActive ? 'active' : ''}`}
       >
-        {isActive ? '▶' : ''}
-      </div>
-
-      {/* Frame Details */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span
-            style={{
-              fontWeight: isActive ? '600' : 'normal',
-              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-              fontSize: '13px',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            {frame.methodName}()
-          </span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>#{depth}</span>
-        </div>
+        {/* Active Indicator Arrow Gutter */}
         <div
           style={{
-            fontSize: '12px',
-            color: 'var(--text-muted)',
+            width: '12px',
+            color: 'var(--accent-color)',
+            fontSize: '11px',
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
           }}
         >
-          <span
-            title={frame.className}
+          {isActive ? '▶' : ''}
+        </div>
+
+        {/* Frame Details */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span
+              style={{
+                fontWeight: isActive ? '600' : 'normal',
+                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontSize: '13px',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              {frame.methodName}()
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>#{depth}</span>
+          </div>
+          <div
             style={{
-              textOverflow: 'ellipsis',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              maxWidth: '240px',
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              justifyContent: 'space-between',
             }}
           >
-            {frame.className}
-          </span>
-          <span style={{ fontFamily: 'var(--font-mono)' }}>
-            {sourceFile}:{frame.lineNumber}
-          </span>
+            <span
+              title={frame.className}
+              style={{
+                textOverflow: 'ellipsis',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                maxWidth: '240px',
+              }}
+            >
+              {frame.className}
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>
+              {sourceFile}:{frame.lineNumber}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
-  )
-})
+    )
+  },
+)
 
 FrameCard.displayName = 'FrameCard'
 export default FrameCard
