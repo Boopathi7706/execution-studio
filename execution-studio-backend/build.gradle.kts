@@ -18,6 +18,9 @@ dependencies {
     // Shared trace model
     implementation(project(":execution-studio-trace-model"))
 
+    // Trace capture engine library
+    implementation(project(":execution-studio-trace-engine"))
+
     // Spring Boot Starter Starters
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
