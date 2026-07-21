@@ -1,5 +1,7 @@
 plugins {
     java
+    id("org.springframework.boot")
+    id("io.spring.dependency-management")
 }
 
 java {
@@ -13,6 +15,18 @@ repositories {
 }
 
 dependencies {
-    // Backend imports the shared model module
+    // Shared trace model
     implementation(project(":execution-studio-trace-model"))
+
+    // Spring Boot Starter Starters
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // Testing
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
