@@ -129,6 +129,38 @@ class DefaultTraceEngineTest {
     }
 
     @Test
+    void shouldCaptureMultipleExecutionEventsForSampleProgram() throws Exception {
+        Path sourceFile = tempDir.resolve("Test.java");
+        Files.writeString(sourceFile, """
+            public class Test {
+                public static void main(String[] args) {
+                    int a = 5;
+                    int b = 10;
+                    int c = a + b;
+                    System.out.println(c);
+                }
+            }
+            """);
+
+        Path outputDirectory = tempDir.resolve("output");
+
+        TraceRequest request = TraceRequest.builder()
+            .sourceFile(sourceFile)
+            .className("Test")
+            .outputDirectory(outputDirectory)
+            .build();
+
+        TraceResult result = traceEngine.execute(request);
+
+        assertThat(result).isNotNull();
+        assertThat(result.traceFile()).exists();
+
+        ExecutionTrace trace = new JacksonTraceLoader().load(result.traceFile());
+        assertThat(trace).isNotNull();
+        assertThat(trace.events().size()).isGreaterThan(1);
+    }
+
+    @Test
     void shouldThrowExceptionForInvalidSourceFile() {
         Path nonExistentSource = tempDir.resolve("NonExistent.java");
         Path outputDirectory = tempDir.resolve("output");
