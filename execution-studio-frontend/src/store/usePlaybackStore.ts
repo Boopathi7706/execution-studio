@@ -1,11 +1,180 @@
 import { create } from 'zustand'
-import type { VisualizationModel, PlaybackResponse } from '@/types/visualization.types'
+import type {
+  VisualizationModel,
+  PlaybackResponse,
+  DisplayValue,
+  VariableView,
+  FrameView,
+  HeapObjectView,
+} from '@/types/visualization.types'
 import type { PlaybackMetadata } from '@/types/metadata.types'
 import { PlaybackClient } from '@/api/PlaybackClient'
+
+export interface TraceEvent {
+  sequence: number
+  sourceFile: string
+  className: string
+  methodName: string
+  lineNumber: number
+  callStack?: {
+    className?: string
+    methodName?: string
+    lineNumber?: number
+    locals?: {
+      name: string
+      type?: string
+      declaredType?: string
+      value?: any
+    }[]
+    localVariables?: {
+      name: string
+      type?: string
+      declaredType?: string
+      value?: any
+    }[]
+  }[]
+  heap?: Record<string, any>
+  heapObjects?: Record<string, any>
+  exceptionType?: string
+  exceptionMessage?: string
+}
+
+function parseDisplayValue(rawVal: any, declaredType?: string): DisplayValue {
+  if (rawVal === null || rawVal === undefined) {
+    return { kind: 'null', valueString: 'null', value: 'null' }
+  }
+
+  if (typeof rawVal === 'object') {
+    const kind =
+      rawVal.kind ||
+      (rawVal.type === 'array' || (declaredType && declaredType.includes('[]'))
+        ? 'array_ref'
+        : 'object_ref')
+    const objectId = rawVal.objectId || rawVal.id || rawVal.referenceId || 'obj_1'
+    const val = rawVal.value !== undefined ? rawVal.value : rawVal.valueString || objectId
+
+    return {
+      kind,
+      objectId,
+      valueString: typeof val === 'string' ? val : String(val),
+      value: val,
+    }
+  }
+
+  if (typeof rawVal === 'string') {
+    return { kind: 'string', valueString: rawVal, value: rawVal }
+  }
+
+  if (typeof rawVal === 'boolean') {
+    return { kind: 'boolean', valueString: String(rawVal), value: rawVal }
+  }
+
+  if (typeof rawVal === 'number') {
+    return { kind: 'int', valueString: String(rawVal), value: rawVal }
+  }
+
+  return { kind: 'primitive', valueString: String(rawVal), value: rawVal }
+}
+
+function parseHeapObjects(rawHeap: any): Record<string, HeapObjectView> {
+  if (!rawHeap || typeof rawHeap !== 'object') return {}
+
+  const result: Record<string, HeapObjectView> = {}
+
+  Object.entries(rawHeap).forEach(([id, obj]: [string, any]) => {
+    if (!obj) return
+    const objId = obj.objectId || id
+    const type: 'object' | 'array' =
+      obj.type === 'array' || (obj.classNameOrType && obj.classNameOrType.includes('[]'))
+        ? 'array'
+        : 'object'
+
+    const fieldsOrElements: Record<string, DisplayValue> = {}
+    const rawFields = obj.fieldsOrElements || obj.fields || obj.elements || {}
+
+    if (typeof rawFields === 'object') {
+      Object.entries(rawFields).forEach(([k, v]) => {
+        fieldsOrElements[k] = parseDisplayValue(v)
+      })
+    }
+
+    result[objId] = {
+      objectId: objId,
+      type,
+      classNameOrType: obj.classNameOrType || obj.type || 'java.lang.Object',
+      fieldsOrElements,
+    }
+  })
+
+  return result
+}
+
+function eventToVisualizationModel(event: TraceEvent | any): VisualizationModel | null {
+  if (!event) return null
+
+  // 1. Map callStack frames (reading either `f.locals` or `f.localVariables`)
+  const rawStack = event.callStack || []
+  const frames: FrameView[] = rawStack.map((f: any, idx: number) => {
+    const rawLocals = f.locals || f.localVariables || []
+    const locals: VariableView[] = rawLocals.map((v: any) => ({
+      name: v.name,
+      declaredType: v.type || v.declaredType || 'Object',
+      value: parseDisplayValue(v.value, v.type || v.declaredType),
+      scope: 'local',
+      changed: false,
+    }))
+
+    return {
+      className: f.className || event.className || 'Test',
+      methodName: f.methodName || event.methodName || 'main',
+      lineNumber: f.lineNumber || event.lineNumber || 1,
+      locals,
+      isActive: idx === 0,
+    }
+  })
+
+  // 2. Fallback single frame if callStack array is empty
+  if (frames.length === 0 && (event.className || event.methodName || event.lineNumber)) {
+    frames.push({
+      className: event.className || 'Test',
+      methodName: event.methodName || 'main',
+      lineNumber: event.lineNumber || 1,
+      locals: [],
+      isActive: true,
+    })
+  }
+
+  const activeFrame = frames[0]
+  const currentLocals = activeFrame ? activeFrame.locals : []
+
+  // 3. Map Heap objects (reading either `event.heap` or `event.heapObjects`)
+  const rawHeap = event.heap || event.heapObjects || {}
+  const heapObjects = parseHeapObjects(rawHeap)
+
+  return {
+    stack: { frames },
+    heap: { objects: heapObjects },
+    variables: { variables: currentLocals },
+    graph: { nodes: [], edges: [] },
+    highlights: {
+      currentLine: event.lineNumber || (activeFrame ? activeFrame.lineNumber : 1),
+      currentMethod: activeFrame ? activeFrame.methodName : 'main',
+      currentStackFrame: activeFrame ? `${activeFrame.className}.${activeFrame.methodName}` : 'main',
+      activeHighlights: [],
+    },
+    status: 'RUNNING',
+  }
+}
 
 interface PlaybackState {
   // State
   sessionId: string | null
+  executionId: string | null
+  status: string | null
+  timeline: TraceEvent[]
+  currentFrameIndex: number
+  totalFrameCount: number
+
   currentModel: VisualizationModel | null
   previousModel: VisualizationModel | null
   metadata: PlaybackMetadata | null
@@ -23,6 +192,14 @@ interface PlaybackState {
   abortController: AbortController | null
 
   // Actions
+  loadTraceTimeline: (executionId: string, status: string, timeline: TraceEvent[]) => void
+  jumpToFrame: (index: number) => void
+  stepNext: () => void
+  stepPrev: () => void
+  firstFrame: () => void
+  lastFrame: () => void
+  stop: () => void
+
   loadSession: (sessionId: string) => Promise<void>
   stepForward: () => Promise<void>
   stepBackward: () => Promise<void>
@@ -36,17 +213,11 @@ interface PlaybackState {
   setSelectedFrameIndex: (index: number | null) => void
 }
 
-/**
- * Zustand state store governing visual timeline playback operations.
- * Connects directly to PlaybackClient REST endpoints.
- */
 export const usePlaybackStore = create<PlaybackState>((set, get) => {
-  // Helper to trigger stepping loops
   const runAutoStepLoop = () => {
     const { isPlaying, playSpeed, stepForward, togglePlay, metadata } = get()
     if (!isPlaying) return
 
-    // If we've reached the end, stop playing
     if (metadata && metadata.currentStepIndex >= metadata.totalSteps - 1) {
       togglePlay()
       return
@@ -55,10 +226,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     const timerId = setTimeout(async () => {
       try {
         await stepForward()
-        // Queue next step if we're still playing
         runAutoStepLoop()
-      } catch (err: unknown) {
-        set({ error: err instanceof Error ? err.message : 'Auto-step failure' })
+      } catch {
         togglePlay()
       }
     }, 1000 / playSpeed)
@@ -82,9 +251,37 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     }
   }
 
+  const updateFrameIndex = (index: number) => {
+    const { timeline, totalFrameCount, currentModel } = get()
+    if (totalFrameCount === 0) return
+
+    const validIndex = Math.max(0, Math.min(index, totalFrameCount - 1))
+    const event = timeline[validIndex]
+    const model = eventToVisualizationModel(event)
+
+    set({
+      currentFrameIndex: validIndex,
+      previousModel: currentModel,
+      currentModel: model,
+      selectedObjectId: null,
+      selectedFrameIndex: null,
+      metadata: {
+        totalSteps: totalFrameCount,
+        currentStepIndex: validIndex,
+        progressPercentage: (validIndex / (totalFrameCount - 1 || 1)) * 100,
+      },
+    })
+  }
+
   return {
     // Initial State
     sessionId: null,
+    executionId: null,
+    status: null,
+    timeline: [],
+    currentFrameIndex: 0,
+    totalFrameCount: 0,
+
     currentModel: null,
     previousModel: null,
     metadata: null,
@@ -99,7 +296,68 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     selectedObjectId: null,
     selectedFrameIndex: null,
 
-    // Actions
+    loadTraceTimeline: (executionId: string, status: string, timeline: TraceEvent[]) => {
+      clearActiveTimer()
+      cancelPendingRequest()
+
+      const total = timeline.length
+      const initialEvent = timeline[0]
+      const model = eventToVisualizationModel(initialEvent)
+
+      set({
+        executionId,
+        sessionId: executionId,
+        status,
+        timeline,
+        currentFrameIndex: 0,
+        totalFrameCount: total,
+        currentModel: model,
+        previousModel: null,
+        isPlaying: false,
+        connectionStatus: 'CONNECTED',
+        metadata: {
+          totalSteps: total,
+          currentStepIndex: 0,
+          progressPercentage: 0,
+        },
+      })
+    },
+
+    jumpToFrame: (index: number) => {
+      updateFrameIndex(index)
+    },
+
+    stepNext: () => {
+      const { currentFrameIndex, totalFrameCount } = get()
+      if (currentFrameIndex < totalFrameCount - 1) {
+        updateFrameIndex(currentFrameIndex + 1)
+      }
+    },
+
+    stepPrev: () => {
+      const { currentFrameIndex } = get()
+      if (currentFrameIndex > 0) {
+        updateFrameIndex(currentFrameIndex - 1)
+      }
+    },
+
+    firstFrame: () => {
+      updateFrameIndex(0)
+    },
+
+    lastFrame: () => {
+      const { totalFrameCount } = get()
+      if (totalFrameCount > 0) {
+        updateFrameIndex(totalFrameCount - 1)
+      }
+    },
+
+    stop: () => {
+      clearActiveTimer()
+      set({ isPlaying: false })
+      updateFrameIndex(0)
+    },
+
     loadSession: async (sessionId: string) => {
       clearActiveTimer()
       cancelPendingRequest()
@@ -144,15 +402,18 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     },
 
     stepForward: async () => {
-      const { sessionId, metadata, cache, client, currentModel } = get()
-      if (!sessionId || !metadata) return
+      const { timeline, sessionId, metadata, cache, client, currentModel } = get()
+      if (timeline.length > 0) {
+        get().stepNext()
+        return
+      }
 
+      if (!sessionId || !metadata) return
       const nextIndex = metadata.currentStepIndex + 1
       if (nextIndex >= metadata.totalSteps) return
 
       cancelPendingRequest()
 
-      // 1. Check cache first
       if (cache[nextIndex]) {
         set({
           previousModel: currentModel,
@@ -165,12 +426,10 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
             progressPercentage: (nextIndex / (metadata.totalSteps - 1 || 1)) * 100,
           },
         })
-        // Background sync index on server without blocking UI
         client.seek(sessionId, nextIndex).catch(() => {})
         return
       }
 
-      // 2. Fetch from network
       const controller = new AbortController()
       set({ abortController: controller })
 
@@ -199,15 +458,18 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     },
 
     stepBackward: async () => {
-      const { sessionId, metadata, cache, client } = get()
-      if (!sessionId || !metadata) return
+      const { timeline, sessionId, metadata, cache, client } = get()
+      if (timeline.length > 0) {
+        get().stepPrev()
+        return
+      }
 
+      if (!sessionId || !metadata) return
       const prevIndex = metadata.currentStepIndex - 1
       if (prevIndex < 0) return
 
       cancelPendingRequest()
 
-      // 1. Check cache first
       if (cache[prevIndex]) {
         set({
           previousModel: cache[prevIndex - 1] || null,
@@ -224,7 +486,6 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         return
       }
 
-      // 2. Fetch from network
       const controller = new AbortController()
       set({ abortController: controller })
 
@@ -253,13 +514,17 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     },
 
     seek: async (index: number) => {
-      const { sessionId, metadata, cache, client } = get()
+      const { timeline, sessionId, metadata, cache, client } = get()
+      if (timeline.length > 0) {
+        get().jumpToFrame(index)
+        return
+      }
+
       if (!sessionId || !metadata) return
       if (index < 0 || index >= metadata.totalSteps) return
 
       cancelPendingRequest()
 
-      // 1. Check cache first for instant seek
       if (cache[index]) {
         set({
           previousModel: cache[index - 1] || null,
@@ -276,7 +541,6 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         return
       }
 
-      // 2. Fetch from network
       const controller = new AbortController()
       set({ abortController: controller })
 
@@ -325,13 +589,17 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     },
 
     restart: async () => {
-      const { sessionId, client, cache } = get()
+      const { timeline, sessionId, client, cache } = get()
+      if (timeline.length > 0) {
+        get().stop()
+        return
+      }
+
       if (!sessionId) return
 
       clearActiveTimer()
       cancelPendingRequest()
 
-      // If we have step 0 cached, we can instantly update UI before calling REST
       if (cache[0]) {
         set({
           currentModel: cache[0],
@@ -380,9 +648,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     },
 
     clearError: () => set({ error: null }),
-
     setSelectedObjectId: (id: string | null) => set({ selectedObjectId: id }),
-
     setSelectedFrameIndex: (index: number | null) => set({ selectedFrameIndex: index }),
 
     destroy: () => {
@@ -390,6 +656,11 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
       cancelPendingRequest()
       set({
         sessionId: null,
+        executionId: null,
+        status: null,
+        timeline: [],
+        currentFrameIndex: 0,
+        totalFrameCount: 0,
         currentModel: null,
         previousModel: null,
         metadata: null,

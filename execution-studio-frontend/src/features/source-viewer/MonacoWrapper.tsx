@@ -5,16 +5,20 @@ interface MonacoWrapperProps {
   sourceCode: string
   currentLine: number // 1-indexed
   theme?: 'vs-dark' | 'light'
+  onChange?: (value: string) => void
+  readOnly?: boolean
 }
 
 /**
  * A strongly typed, performant wrapper component for Monaco Editor.
- * Renders read-only Java source code and manages line decorations and scroll locks.
+ * Renders Java source code with active execution line highlighting and glyph decorations.
  */
 export const MonacoWrapper: React.FC<MonacoWrapperProps> = ({
   sourceCode,
   currentLine,
   theme = 'vs-dark',
+  onChange,
+  readOnly = false,
 }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null)
@@ -102,13 +106,14 @@ export const MonacoWrapper: React.FC<MonacoWrapperProps> = ({
         language="java"
         theme={theme}
         value={sourceCode}
+        onChange={(val) => onChange?.(val || '')}
         options={{
-          readOnly: true,
+          readOnly,
           minimap: { enabled: false },
           folding: false,
           automaticLayout: true,
           lineNumbers: 'on',
-          glyphMargin: true, // Enables glyph margins for debug indicators
+          glyphMargin: true,
         }}
         onMount={handleEditorDidMount}
       />

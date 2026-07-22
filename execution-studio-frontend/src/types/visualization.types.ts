@@ -3,11 +3,26 @@ export type EdgeType = 'FIELD' | 'ARRAY_ELEMENT' | 'VARIABLE_REFERENCE'
 export type HighlightReason = 'CURRENT' | 'CHANGED' | 'CREATED' | 'REMOVED' | 'SELECTED'
 export type ExecutionStatus = 'RUNNING' | 'COMPLETED' | 'EXCEPTION'
 
+export type DisplayValueKind =
+  | 'int'
+  | 'long'
+  | 'short'
+  | 'byte'
+  | 'float'
+  | 'double'
+  | 'boolean'
+  | 'char'
+  | 'string'
+  | 'null'
+  | 'object_ref'
+  | 'array_ref'
+  | 'primitive'
+
 export interface DisplayValue {
-  kind: 'primitive' | 'object_ref' | 'array_ref' | 'string' | 'null'
+  kind: DisplayValueKind | string
   valueString?: string
   objectId?: string
-  value?: string
+  value?: any
 }
 
 export interface VariableView {
