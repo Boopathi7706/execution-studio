@@ -15,3 +15,13 @@ management:
   endpoint:
     health:
       show-details: always
+
+execution-studio:
+  temp-directory: "${java.io.tmpdir}/execution-studio"
+  upload-directory: "${java.io.tmpdir}/execution-studio/uploads"
+  timeout-seconds: 10
+  object-depth: 5
+  step-limit: 1000
+  serializer:
+    pretty-print: true
+    include-nulls: false
