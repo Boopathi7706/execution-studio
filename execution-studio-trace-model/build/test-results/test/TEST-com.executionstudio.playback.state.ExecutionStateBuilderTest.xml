@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.executionstudio.playback.state.ExecutionStateBuilderTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-07-21T16:03:02" hostname="LAPTOP-PMM388HE" time="0.092">
+<testsuite name="com.executionstudio.playback.state.ExecutionStateBuilderTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-07-22T02:46:16" hostname="LAPTOP-PMM388HE" time="0.12">
   <properties/>
-  <testcase name="shouldReconstructExecutionStateFieldsCorrectly()" classname="com.executionstudio.playback.state.ExecutionStateBuilderTest" time="0.092"/>
+  <testcase name="shouldReconstructExecutionStateFieldsCorrectly()" classname="com.executionstudio.playback.state.ExecutionStateBuilderTest" time="0.12"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
