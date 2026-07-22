@@ -3,11 +3,15 @@ package com.executionstudio.backend.service;
 import com.executionstudio.api.TraceEngine;
 import com.executionstudio.backend.dto.TraceRequestDto;
 import com.executionstudio.backend.dto.TraceResponseDto;
+import com.executionstudio.backend.model.ExecutionStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 class TraceExecutionServiceTest {
@@ -25,7 +29,7 @@ class TraceExecutionServiceTest {
     }
 
     @Test
-    void shouldExecuteSourceCodeAndReturnResponseDto() {
+    void shouldExecuteSourceCodeAndReturnResponseDtoAsync() {
         TraceRequestDto requestDto = new TraceRequestDto(
             """
             public class SampleApp {
@@ -39,11 +43,17 @@ class TraceExecutionServiceTest {
             "SampleApp"
         );
 
-        TraceResponseDto response = traceExecutionService.executeTrace(requestDto);
+        TraceResponseDto response = traceExecutionService.executeTraceAsync(requestDto);
 
         assertThat(response).isNotNull();
         assertThat(response.executionId()).isNotBlank();
-        assertThat(response.status()).isEqualTo("SUCCESS");
-        assertThat(response.timeline()).isNotNull();
+        assertThat(response.status()).isIn(ExecutionStatus.QUEUED.name(), ExecutionStatus.RUNNING.name(), ExecutionStatus.COMPLETED.name());
+
+        await().atMost(Duration.ofSeconds(15))
+            .untilAsserted(() -> {
+                TraceResponseDto current = traceExecutionService.getTraceStatus(response.executionId());
+                assertThat(current.status()).isEqualTo(ExecutionStatus.COMPLETED.name());
+                assertThat(current.timeline()).isNotNull();
+            });
     }
 }
