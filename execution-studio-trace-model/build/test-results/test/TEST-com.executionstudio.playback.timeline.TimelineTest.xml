@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.executionstudio.playback.timeline.TimelineTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-07-22T05:10:04" hostname="LAPTOP-PMM388HE" time="0.006">
+<testsuite name="com.executionstudio.playback.timeline.TimelineTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-07-22T05:16:04" hostname="LAPTOP-PMM388HE" time="0.012">
   <properties/>
-  <testcase name="shouldHandleEmptyTimelineGracefully()" classname="com.executionstudio.playback.timeline.TimelineTest" time="0.002"/>
+  <testcase name="shouldHandleEmptyTimelineGracefully()" classname="com.executionstudio.playback.timeline.TimelineTest" time="0.004"/>
   <testcase name="shouldResetToStart()" classname="com.executionstudio.playback.timeline.TimelineTest" time="0.001"/>
-  <testcase name="shouldRejectOutOfBoundsSeek()" classname="com.executionstudio.playback.timeline.TimelineTest" time="0.001"/>
+  <testcase name="shouldRejectOutOfBoundsSeek()" classname="com.executionstudio.playback.timeline.TimelineTest" time="0.002"/>
   <testcase name="shouldInitializeAtZero()" classname="com.executionstudio.playback.timeline.TimelineTest" time="0.001"/>
   <testcase name="shouldReturnCorrectIndexNavigationProperties()" classname="com.executionstudio.playback.timeline.TimelineTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
