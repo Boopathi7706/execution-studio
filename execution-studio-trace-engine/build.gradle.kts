@@ -1,11 +1,12 @@
 plugins {
     java
     application
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("com.github.johnrengelman.shadow")
 }
 
-group = "com.executionstudio"
-version = "0.1.0"
+application {
+    mainClass.set("com.executionstudio.cli.TraceEngineApp")
+}
 
 java {
     toolchain {
@@ -13,15 +14,14 @@ java {
     }
 }
 
-application {
-    mainClass.set("com.executionstudio.cli.TraceEngineApp")
-}
-
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    // Shared Trace Models
+    implementation(project(":execution-studio-trace-model"))
+
     // JSON serialization
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.16.1")
@@ -40,12 +40,10 @@ tasks.test {
     useJUnitPlatform()
     // Increase timeout for integration tests that launch child JVMs
     systemProperty("junit.jupiter.execution.timeout.default", "60s")
-    // jdk.jdi is part of the JDK and available by default on JDK 21
 }
 
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
-    // jdk.jdi is part of the standard JDK on Java 21; no --add-modules needed
 }
 
 tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
