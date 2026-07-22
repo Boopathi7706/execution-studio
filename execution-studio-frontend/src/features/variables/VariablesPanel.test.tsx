@@ -124,12 +124,12 @@ describe('VariablesPanel Component', () => {
     expect(screen.getByText('"Alice"')).toBeDefined()
 
     expect(screen.getByText('student')).toBeDefined()
-    expect(screen.getByText('Student @0x0012')).toBeDefined()
+    expect(screen.getByText('@0x0012')).toBeDefined()
 
     expect(screen.getByText('numbers')).toBeDefined()
 
     expect(screen.getByText('list')).toBeDefined()
-    expect(screen.getByText('ArrayList(size=5)')).toBeDefined()
+    expect(screen.getByText('@size=5')).toBeDefined()
 
     expect(screen.getByText('flag')).toBeDefined()
     expect(screen.getByText('parameter')).toBeDefined()

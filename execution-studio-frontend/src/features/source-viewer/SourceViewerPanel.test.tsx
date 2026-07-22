@@ -72,11 +72,11 @@ describe('SourceViewerPanel and MonacoWrapper', () => {
     cleanup()
   })
 
-  it('renders read-only java editor options', () => {
+  it('renders editable java editor options', () => {
     render(<SourceViewerPanel />)
 
     expect(screen.getByTestId('mock-monaco-editor')).toBeDefined()
-    expect(screen.getByTestId('monaco-readonly').textContent).toBe('readonly')
+    expect(screen.getByTestId('monaco-readonly').textContent).toBe('editable')
     expect(screen.getByTestId('monaco-minimap').textContent).toBe('minimap-off')
   })
 
