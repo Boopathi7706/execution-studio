@@ -61,6 +61,8 @@ export const VariablesPanel: React.FC = () => {
 
   return (
     <div
+      tabIndex={0}
+      aria-label="Local Variables List Table"
       style={{
         width: '100%',
         height: '100%',

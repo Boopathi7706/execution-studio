@@ -185,6 +185,7 @@ interface PlaybackState {
   cache: Record<number, VisualizationModel>
   selectedObjectId: string | null
   selectedFrameIndex: number | null
+  expandedObjects: Record<string, boolean>
 
   // Internal references
   client: PlaybackClient
@@ -211,6 +212,8 @@ interface PlaybackState {
   destroy: () => void
   setSelectedObjectId: (id: string | null) => void
   setSelectedFrameIndex: (index: number | null) => void
+  toggleObjectExpanded: (objectId: string) => void
+  setObjectExpanded: (objectId: string, expanded: boolean) => void
 }
 
 export const usePlaybackStore = create<PlaybackState>((set, get) => {
@@ -295,6 +298,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     abortController: null,
     selectedObjectId: null,
     selectedFrameIndex: null,
+    expandedObjects: {},
 
     loadTraceTimeline: (executionId: string, status: string, timeline: TraceEvent[]) => {
       clearActiveTimer()
@@ -651,6 +655,27 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     setSelectedObjectId: (id: string | null) => set({ selectedObjectId: id }),
     setSelectedFrameIndex: (index: number | null) => set({ selectedFrameIndex: index }),
 
+    toggleObjectExpanded: (objectId: string) => {
+      const { expandedObjects } = get()
+      const current = expandedObjects[objectId] !== false // default expanded is true
+      set({
+        expandedObjects: {
+          ...expandedObjects,
+          [objectId]: !current,
+        },
+      })
+    },
+
+    setObjectExpanded: (objectId: string, expanded: boolean) => {
+      const { expandedObjects } = get()
+      set({
+        expandedObjects: {
+          ...expandedObjects,
+          [objectId]: expanded,
+        },
+      })
+    },
+
     destroy: () => {
       clearActiveTimer()
       cancelPendingRequest()
@@ -672,6 +697,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         abortController: null,
         selectedObjectId: null,
         selectedFrameIndex: null,
+        expandedObjects: {},
       })
     },
   }

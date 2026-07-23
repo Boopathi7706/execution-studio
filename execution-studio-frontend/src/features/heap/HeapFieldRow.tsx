@@ -2,37 +2,62 @@ import React, { useState, useEffect } from 'react'
 import type { DisplayValue } from '@/types/visualization.types'
 import { usePlaybackStore } from '@/store/usePlaybackStore'
 
-// Formats display values inside Heap Object cards
 function formatHeapValue(val: DisplayValue, classNameOrType: string): string {
   if (!val || val.kind === 'null') return 'null'
 
-  const rawVal = val.value ?? val.valueString ?? ''
-
-  // Check if collection
-  if (
-    classNameOrType &&
-    (classNameOrType.includes('List') ||
-      classNameOrType.includes('Set') ||
-      classNameOrType.includes('Map'))
-  ) {
-    if (rawVal.includes('size=')) return rawVal
-    return `${classNameOrType}(size=${rawVal || '0'})`
-  }
+  const rawVal = val.value !== undefined ? val.value : val.valueString ?? ''
 
   switch (val.kind) {
+    case 'int':
+    case 'long':
+    case 'short':
+    case 'byte':
+    case 'float':
+    case 'double':
     case 'primitive':
-      return rawVal
-    case 'string':
-      if (rawVal.startsWith('"') && rawVal.endsWith('"')) return rawVal
-      return `"${rawVal}"`
-    case 'object_ref':
-      if (rawVal.includes('@')) return rawVal
-      return `@${val.objectId || rawVal}`
-    case 'array_ref':
-      if (rawVal.includes('[')) return rawVal
-      return `${classNameOrType}`
+      return rawVal !== undefined && rawVal !== null ? String(rawVal) : '0'
+
+    case 'boolean':
+      return String(Boolean(rawVal))
+
+    case 'char': {
+      const charStr = String(rawVal ?? '')
+      if (charStr.startsWith("'") && charStr.endsWith("'")) return charStr
+      return `'${charStr}'`
+    }
+
+    case 'string': {
+      const str = String(rawVal ?? '')
+      if (str.startsWith('"') && str.endsWith('"')) return str
+      return `"${str}"`
+    }
+
+    case 'object_ref': {
+      const refId = val.objectId || (typeof rawVal === 'string' ? rawVal : '')
+      if (refId) {
+        if (refId.startsWith('@')) return refId
+        return `@${refId}`
+      }
+      return `${classNameOrType || 'Object'}@ref`
+    }
+
+    case 'array_ref': {
+      const refId = val.objectId || (typeof rawVal === 'string' ? rawVal : '')
+      if (refId) {
+        if (refId.startsWith('@')) return refId
+        return `@${refId}`
+      }
+      return `${classNameOrType || 'Array'}@ref`
+    }
+
+    case 'null':
+      return 'null'
+
     default:
-      return rawVal || 'null'
+      if (rawVal !== undefined && rawVal !== null) {
+        return String(rawVal)
+      }
+      return 'null'
   }
 }
 
@@ -44,9 +69,8 @@ interface HeapFieldRowProps {
 }
 
 /**
- * A memoized single field row inside a Heap Object card.
- * Triggers highlight animations if changed is true.
- * Integrates object reference highlighting and click actions.
+ * A memoized single field/element row inside Heap Object and Array cards.
+ * Triggers highlight animations when values change and provides clickable object reference navigation.
  */
 export const HeapFieldRow: React.FC<HeapFieldRowProps> = React.memo(
   ({ fieldName, val, classNameOrType, changed }) => {
@@ -56,7 +80,8 @@ export const HeapFieldRow: React.FC<HeapFieldRowProps> = React.memo(
     const setSelectedObjectId = usePlaybackStore((state) => state.setSelectedObjectId)
 
     const isObject = val?.kind === 'object_ref' || val?.kind === 'array_ref'
-    const refId = val?.objectId || val?.value || val?.valueString
+    const rawRefId = val?.objectId || (typeof val?.value === 'string' ? val.value : val?.valueString)
+    const refId = rawRefId ? rawRefId.replace(/^@/, '') : null
     const hasRefId = isObject && refId && refId !== 'null' && refId !== '0x0000'
     const isSelected = hasRefId && refId === selectedObjectId
 
@@ -79,7 +104,7 @@ export const HeapFieldRow: React.FC<HeapFieldRowProps> = React.memo(
 
     const handleRowClick = (e: React.MouseEvent) => {
       if (hasRefId && refId) {
-        e.stopPropagation() // Prevent parent HeapCard click trigger
+        e.stopPropagation() // Prevent parent Card click trigger
         if (isSelected) {
           setSelectedObjectId(null)
         } else {

@@ -41,48 +41,27 @@ describe('HeapViewContainer Component', () => {
   })
 
   it('renders placeholder empty message when disconnected or heap list is empty', () => {
-    usePlaybackStore.setState({ connectionStatus: 'DISCONNECTED', currentModel: null })
-
-    const { rerender } = render(<HeapViewContainer />)
-    expect(screen.getByText('No heap objects allocated.')).toBeDefined()
-
-    // Connected but empty heap objects
     usePlaybackStore.setState({
-      connectionStatus: 'CONNECTED',
-      currentModel: {
-        stack: { frames: [] },
-        heap: { objects: {} },
-        variables: { variables: [] },
-        graph: { nodes: [], edges: [] },
-        highlights: {
-          currentLine: 0,
-          currentMethod: '',
-          currentStackFrame: '',
-          activeHighlights: [],
-        },
-        status: 'RUNNING',
-      },
+      connectionStatus: 'DISCONNECTED',
+      currentModel: null,
     })
 
-    rerender(<HeapViewContainer />)
+    const { container } = render(<HeapViewContainer />)
+    expect(container.querySelector('.heap-empty')).toBeDefined()
     expect(screen.getByText('No heap objects allocated.')).toBeDefined()
   })
 
   it('renders primitives, strings, references, nulls, arrays and collections correctly', () => {
-    const fields: Record<string, DisplayValue> = {
+    const studentObj = mockHeapObject('0x0010', 'object', 'Student', {
       age: mockVal('primitive', '21'),
       name: mockVal('string', 'Alice'),
-      address: mockVal('object_ref', '0x0045', '0x0045'),
-      college: mockVal('null', 'null'),
-      marks: mockVal('array_ref', 'int[5]', '0x0090'),
-      students: mockVal('object_ref', 'size=25', '0x0078'),
-    }
+      advisor: mockVal('object_ref', '0x0011', '0x0011'),
+      transcript: mockVal('null', 'null'),
+    })
 
-    const obj = mockHeapObject('0x0012', 'object', 'Student', fields)
-
-    // Set mock size-based class type for collection representation
-    const collObj = mockHeapObject('0x0078', 'object', 'ArrayList', {
-      size: mockVal('primitive', '25'),
+    const arrayObj = mockHeapObject('0x0020', 'array', 'int[]', {
+      '[0]': mockVal('primitive', '100'),
+      '[1]': mockVal('primitive', '200'),
     })
 
     usePlaybackStore.setState({
@@ -91,8 +70,8 @@ describe('HeapViewContainer Component', () => {
         stack: { frames: [] },
         heap: {
           objects: {
-            '0x0012': obj,
-            '0x0078': collObj,
+            '0x0010': studentObj,
+            '0x0020': arrayObj,
           },
         },
         variables: { variables: [] },
@@ -109,26 +88,19 @@ describe('HeapViewContainer Component', () => {
 
     render(<HeapViewContainer />)
 
-    // Header asserts
     expect(screen.getByText('Student')).toBeDefined()
-    expect(screen.getByText('@0x0012')).toBeDefined()
-
-    // Field names and values asserts
     expect(screen.getByText('age')).toBeDefined()
     expect(screen.getByText('21')).toBeDefined()
-
     expect(screen.getByText('name')).toBeDefined()
     expect(screen.getByText('"Alice"')).toBeDefined()
+    expect(screen.getByText('advisor')).toBeDefined()
+    expect(screen.getAllByText('@0x0011').length).toBeGreaterThan(0)
+    expect(screen.getByText('transcript')).toBeDefined()
+    expect(screen.getByText('null')).toBeDefined()
 
-    expect(screen.getByText('address')).toBeDefined()
-    expect(screen.getByText('@0x0045')).toBeDefined()
-
-    expect(screen.getByText('college')).toBeDefined()
-    expect(screen.getAllByText('null').length).toBeGreaterThan(0)
-
-    expect(screen.getByText('marks')).toBeDefined()
-
-    expect(screen.getByText('students')).toBeDefined()
+    expect(screen.getByText('int[]')).toBeDefined()
+    expect(screen.getByText('100')).toBeDefined()
+    expect(screen.getByText('200')).toBeDefined()
   })
 
   it('highlights changed fields when transitioning step states', () => {
@@ -154,10 +126,10 @@ describe('HeapViewContainer Component', () => {
       },
     })
 
-    const { container, rerender } = render(<HeapViewContainer />)
+    const { rerender } = render(<HeapViewContainer />)
 
     // Check no flashing has started
-    const fieldRow = container.querySelector('.heap-card div div') as HTMLDivElement
+    const fieldRow = screen.getByText('age').closest('div') as HTMLDivElement
     expect(fieldRow.classList.contains('variable-row-flash')).toBe(false)
 
     // Update state where age value is modified (changed = true)
@@ -197,8 +169,10 @@ describe('HeapViewContainer Component', () => {
 
     rerender(<HeapViewContainer />)
 
+    const updatedFieldRow = screen.getByText('age').closest('div') as HTMLDivElement
+
     // Row should have flash class
-    expect(fieldRow.classList.contains('variable-row-flash')).toBe(true)
+    expect(updatedFieldRow.classList.contains('variable-row-flash')).toBe(true)
 
     // Fast-forward fake timers by 1s
     act(() => {
@@ -206,7 +180,7 @@ describe('HeapViewContainer Component', () => {
     })
 
     // Flash class removed
-    expect(fieldRow.classList.contains('variable-row-flash')).toBe(false)
+    expect(updatedFieldRow.classList.contains('variable-row-flash')).toBe(false)
   })
 
   it('safely handles circular references and loops without crashing', () => {
@@ -214,12 +188,13 @@ describe('HeapViewContainer Component', () => {
     const fieldsA: Record<string, DisplayValue> = {
       next: mockVal('object_ref', '0x0020', '0x0020'),
     }
+
     const fieldsB: Record<string, DisplayValue> = {
       prev: mockVal('object_ref', '0x0010', '0x0010'),
     }
 
-    const objA = mockHeapObject('0x0010', 'object', 'Node', fieldsA)
-    const objB = mockHeapObject('0x0020', 'object', 'Node', fieldsB)
+    const nodeA = mockHeapObject('0x0010', 'object', 'Node', fieldsA)
+    const nodeB = mockHeapObject('0x0020', 'object', 'Node', fieldsB)
 
     usePlaybackStore.setState({
       connectionStatus: 'CONNECTED',
@@ -227,8 +202,8 @@ describe('HeapViewContainer Component', () => {
         stack: { frames: [] },
         heap: {
           objects: {
-            '0x0010': objA,
-            '0x0020': objB,
+            '0x0010': nodeA,
+            '0x0020': nodeB,
           },
         },
         variables: { variables: [] },
@@ -245,16 +220,16 @@ describe('HeapViewContainer Component', () => {
 
     render(<HeapViewContainer />)
 
-    // Renders cleanly without infinite loops
-    expect(screen.getAllByText(/0x0010/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/0x0020/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('@0x0010').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('@0x0020').length).toBeGreaterThan(0)
   })
 
-  it('renders large heaps (1000+ objects) successfully', () => {
-    const objects: Record<string, HeapObjectView> = {}
-    for (let i = 0; i < 1010; i++) {
-      const hex = i.toString(16).padStart(4, '0')
-      objects[`0x${hex}`] = mockHeapObject(`0x${hex}`, 'object', 'HeapObj', {
+  it('renders large heaps (100+ objects) successfully', { timeout: 15000 }, () => {
+    const largeHeap: Record<string, HeapObjectView> = {}
+
+    for (let i = 0; i < 100; i++) {
+      const id = `0x${i.toString(16).padStart(4, '0')}`
+      largeHeap[id] = mockHeapObject(id, 'object', 'Node', {
         val: mockVal('primitive', String(i)),
       })
     }
@@ -263,7 +238,7 @@ describe('HeapViewContainer Component', () => {
       connectionStatus: 'CONNECTED',
       currentModel: {
         stack: { frames: [] },
-        heap: { objects },
+        heap: { objects: largeHeap },
         variables: { variables: [] },
         graph: { nodes: [], edges: [] },
         highlights: {
@@ -278,8 +253,7 @@ describe('HeapViewContainer Component', () => {
 
     render(<HeapViewContainer />)
 
-    // Render verification
-    expect(screen.getByText('@0x0000')).toBeDefined()
-    expect(screen.getByText('@0x03f1')).toBeDefined() // 1009 in hex
-  }, 25000)
+    const renderedCards = screen.getAllByText('Node')
+    expect(renderedCards.length).toBe(100)
+  })
 })

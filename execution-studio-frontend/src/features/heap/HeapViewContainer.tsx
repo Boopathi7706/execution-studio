@@ -9,6 +9,7 @@ import ObjectGraphPanel from '@/features/object-graph/ObjectGraphPanel'
  */
 export const HeapViewContainer: React.FC = () => {
   const currentModel = usePlaybackStore((state) => state.currentModel)
+  const previousModel = usePlaybackStore((state) => state.previousModel)
   const connectionStatus = usePlaybackStore((state) => state.connectionStatus)
 
   const [activeTab, setActiveTab] = useState<'cards' | 'graph'>('cards')
@@ -88,6 +89,8 @@ export const HeapViewContainer: React.FC = () => {
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {activeTab === 'cards' ? (
           <div
+            tabIndex={0}
+            aria-label="Heap Elements Card List"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
@@ -105,7 +108,7 @@ export const HeapViewContainer: React.FC = () => {
               <HeapCard
                 key={obj.objectId}
                 obj={obj}
-                previousModel={usePlaybackStore.getState().previousModel}
+                previousModel={previousModel}
               />
             ))}
           </div>

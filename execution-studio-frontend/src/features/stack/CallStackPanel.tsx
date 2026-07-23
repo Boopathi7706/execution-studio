@@ -36,6 +36,8 @@ export const CallStackPanel: React.FC = () => {
 
   return (
     <div
+      tabIndex={0}
+      aria-label="Call Stack Frames List"
       style={{
         display: 'flex',
         flexDirection: 'column',

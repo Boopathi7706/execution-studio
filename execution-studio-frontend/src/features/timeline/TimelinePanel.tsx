@@ -112,9 +112,9 @@ export const TimelinePanel: React.FC = () => {
   }, [connectionStatus, stepForward, stepBackward, togglePlay, restart])
 
   const buttonStyle = (enabled: boolean): React.CSSProperties => ({
-    backgroundColor: '#1e293b',
-    border: '1px solid #334155',
-    color: enabled ? '#f8fafc' : '#64748b',
+    backgroundColor: 'var(--bg-tertiary)',
+    border: '1px solid var(--border-color)',
+    color: enabled ? 'var(--text-primary)' : 'var(--text-muted)',
     borderRadius: '4px',
     padding: '4px 10px',
     cursor: enabled ? 'pointer' : 'not-allowed',
@@ -132,22 +132,21 @@ export const TimelinePanel: React.FC = () => {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
+        gap: '8px',
         width: '100%',
-        height: '100%',
       }}
     >
-      {/* Control Buttons Bar */}
+      {/* Top Controls & Player Bar */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '12px',
-          backgroundColor: '#0f172a',
+          backgroundColor: 'var(--bg-primary)',
           padding: '6px 12px',
           borderRadius: '6px',
-          border: '1px solid #1e293b',
+          border: '1px solid var(--border-color)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -183,8 +182,8 @@ export const TimelinePanel: React.FC = () => {
             disabled={!isConnected}
             style={{
               ...buttonStyle(isConnected),
-              backgroundColor: isPlaying ? '#38bdf8' : '#1e293b',
-              color: isPlaying ? '#0f172a' : '#f8fafc',
+              backgroundColor: isPlaying ? 'var(--accent-secondary)' : 'var(--bg-tertiary)',
+              color: isPlaying ? '#0f172a' : 'var(--text-primary)',
             }}
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -222,7 +221,7 @@ export const TimelinePanel: React.FC = () => {
 
         {/* Speed Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <label style={{ fontSize: '12px', color: '#94a3b8' }} htmlFor="playback-speed-select">
+          <label style={{ fontSize: '12px', color: 'var(--text-muted)' }} htmlFor="playback-speed-select">
             Speed:
           </label>
           <select
@@ -231,9 +230,9 @@ export const TimelinePanel: React.FC = () => {
             onChange={(e) => setSpeed(Number(e.target.value))}
             disabled={!isConnected}
             style={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #334155',
-              color: isConnected ? '#f8fafc' : '#64748b',
+              backgroundColor: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              color: isConnected ? 'var(--text-primary)' : 'var(--text-muted)',
               borderRadius: '4px',
               padding: '2px 6px',
               fontSize: '12px',
@@ -250,8 +249,8 @@ export const TimelinePanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Scrubber Bar */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {/* Scrubber Range Input */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
         <input
           type="range"
           min={0}
@@ -262,7 +261,7 @@ export const TimelinePanel: React.FC = () => {
           style={{
             width: '100%',
             cursor: isConnected ? 'pointer' : 'not-allowed',
-            accentColor: '#38bdf8',
+            accentColor: 'var(--accent-secondary)',
           }}
           aria-label="Timeline scrubber"
         />
@@ -271,7 +270,7 @@ export const TimelinePanel: React.FC = () => {
             display: 'flex',
             justifyContent: 'space-between',
             fontSize: '11px',
-            color: '#94a3b8',
+            color: 'var(--text-muted)',
           }}
         >
           <span>
@@ -283,14 +282,14 @@ export const TimelinePanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Timeline Frames List (Clickable Frame Selector) */}
+      {/* Timeline Frames Thumbnails List */}
       {timeline.length > 0 && (
         <div
           style={{
             display: 'flex',
             gap: '6px',
             overflowX: 'auto',
-            padding: '4px 0',
+            padding: '2px 0',
           }}
         >
           {timeline.map((event: TraceEvent, index: number) => {
@@ -301,11 +300,11 @@ export const TimelinePanel: React.FC = () => {
                 onClick={() => jumpToFrame(index)}
                 style={{
                   flexShrink: 0,
-                  padding: '4px 8px',
+                  padding: '3px 8px',
                   borderRadius: '4px',
-                  border: isActive ? '1px solid #38bdf8' : '1px solid #334155',
-                  backgroundColor: isActive ? 'rgba(56, 189, 248, 0.15)' : '#0f172a',
-                  color: isActive ? '#38bdf8' : '#94a3b8',
+                  border: isActive ? '1px solid var(--accent-secondary)' : '1px solid var(--border-color)',
+                  backgroundColor: isActive ? 'var(--accent-bg-secondary)' : 'var(--bg-primary)',
+                  color: isActive ? 'var(--accent-secondary)' : 'var(--text-muted)',
                   fontSize: '11px',
                   cursor: 'pointer',
                   textAlign: 'left',
@@ -318,7 +317,7 @@ export const TimelinePanel: React.FC = () => {
                 <span>
                   {event.className}.{event.methodName}()
                 </span>
-                <span style={{ color: '#64748b' }}>Line {event.lineNumber}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Line {event.lineNumber}</span>
               </button>
             )
           })}
