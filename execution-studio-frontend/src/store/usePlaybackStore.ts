@@ -44,25 +44,34 @@ function parseDisplayValue(rawVal: any, declaredType?: string): DisplayValue {
     return { kind: 'null', valueString: 'null', value: 'null' }
   }
 
+  if (typeof rawVal === 'string') {
+    if (rawVal === 'null') {
+      return { kind: 'null', valueString: 'null', value: 'null' }
+    }
+    return { kind: 'string', valueString: rawVal, value: rawVal }
+  }
+
   if (typeof rawVal === 'object') {
     const kind =
       rawVal.kind ||
       (rawVal.type === 'array' || (declaredType && declaredType.includes('[]'))
         ? 'array_ref'
         : 'object_ref')
-    const objectId = rawVal.objectId || rawVal.id || rawVal.referenceId || 'obj_1'
-    const val = rawVal.value !== undefined ? rawVal.value : rawVal.valueString || objectId
+
+    if (kind === 'null' || rawVal.value === 'null' || rawVal.valueString === 'null') {
+      return { kind: 'null', valueString: 'null', value: 'null' }
+    }
+
+    // Do NOT fallback to default 'obj_1' if objectId is unassigned!
+    const objectId = rawVal.objectId || rawVal.id || rawVal.referenceId || undefined
+    const val = rawVal.value !== undefined ? rawVal.value : rawVal.valueString
 
     return {
       kind,
       objectId,
-      valueString: typeof val === 'string' ? val : String(val),
+      valueString: typeof val === 'string' ? val : val !== undefined ? String(val) : objectId,
       value: val,
     }
-  }
-
-  if (typeof rawVal === 'string') {
-    return { kind: 'string', valueString: rawVal, value: rawVal }
   }
 
   if (typeof rawVal === 'boolean') {
