@@ -89,6 +89,8 @@ export const HeapViewContainer: React.FC = () => {
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {activeTab === 'cards' ? (
           <div
+            tabIndex={0}
+            aria-label="Heap Elements Card List"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',

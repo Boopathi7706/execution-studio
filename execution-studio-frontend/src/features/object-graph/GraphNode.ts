@@ -1,6 +1,8 @@
+export type GraphNodeType = 'OBJECT' | 'ARRAY' | 'STRING' | 'PRIMITIVE' | 'NULL'
+
 export interface GraphNode {
   id: string
-  type: 'OBJECT' | 'ARRAY' | 'STRING' | 'PRIMITIVE' | 'NULL'
+  type: GraphNodeType
   classNameOrType: string
   objectId: string
 }
