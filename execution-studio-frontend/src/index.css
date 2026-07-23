@@ -1,4 +1,4 @@
-/* CSS Reset & System Design Tokens */
+/* Execution Studio - Professional Desktop Debugger IDE Design System */
 *,
 *::before,
 *::after {
@@ -8,35 +8,37 @@
 }
 
 :root {
-  /* Dark Theme Design Variables */
-  --bg-primary: #0a0b0e;
-  --bg-secondary: #12131a;
-  --bg-tertiary: #1a1c26;
+  /* JetBrains & Chrome DevTools Inspired Dark Palette */
+  --bg-primary: #090d16;       /* Main window deep navy background */
+  --bg-secondary: #111827;     /* Panel card background */
+  --bg-tertiary: #1f2937;      /* Header / Toolbar background */
+  --bg-hover: #374151;         /* Hover state background */
 
-  --border-color: #262936;
-  --border-focus: #3d4257;
+  --border-color: #2d3748;     /* Crisp panel border */
+  --border-focus: #4b5563;     /* Active focus border */
 
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
+  --text-primary: #f9fafb;     /* High contrast primary text */
+  --text-secondary: #cbd5e1;   /* Subtitle text */
+  --text-muted: #64748b;       /* Disabled / muted text */
 
-  --accent-color: #a855f7; /* Violet */
-  --accent-secondary: #06b6d4; /* Cyan */
-  --accent-success: #10b981; /* Emerald */
-  --accent-error: #ef4444; /* Red */
+  --accent-color: #a855f7;     /* Neon Violet (Selected nodes & highlights) */
+  --accent-secondary: #38bdf8; /* Sky Cyan (Array nodes & active frames) */
+  --accent-success: #22c55e;   /* Emerald Green (Strings & completed state) */
+  --accent-warning: #eab308;   /* Amber Yellow (Compiling / pending) */
+  --accent-error: #ef4444;     /* Crimson Red (Execution errors) */
 
-  --accent-bg: rgba(168, 85, 247, 0.1);
-  --accent-bg-secondary: rgba(6, 182, 212, 0.1);
+  --accent-bg: rgba(168, 85, 247, 0.12);
+  --accent-bg-secondary: rgba(56, 189, 248, 0.12);
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, monospace;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7), 0 2px 4px -1px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.8), 0 4px 6px -2px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.8), 0 2px 4px -1px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.9), 0 4px 6px -2px rgba(0, 0, 0, 0.6);
 
   --transition-fast: 0.15s ease;
-  --transition-normal: 0.3s ease;
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   color-scheme: dark;
   font-family: var(--font-sans);
@@ -62,10 +64,10 @@ body {
   flex-direction: column;
 }
 
-/* Scrollbar styling */
+/* Custom IDE Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {

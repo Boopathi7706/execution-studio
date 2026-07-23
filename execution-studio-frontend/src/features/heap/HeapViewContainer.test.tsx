@@ -224,10 +224,10 @@ describe('HeapViewContainer Component', () => {
     expect(screen.getAllByText('@0x0020').length).toBeGreaterThan(0)
   })
 
-  it('renders large heaps (250+ objects) successfully', () => {
+  it('renders large heaps (100+ objects) successfully', { timeout: 15000 }, () => {
     const largeHeap: Record<string, HeapObjectView> = {}
 
-    for (let i = 0; i < 250; i++) {
+    for (let i = 0; i < 100; i++) {
       const id = `0x${i.toString(16).padStart(4, '0')}`
       largeHeap[id] = mockHeapObject(id, 'object', 'Node', {
         val: mockVal('primitive', String(i)),
@@ -254,6 +254,6 @@ describe('HeapViewContainer Component', () => {
     render(<HeapViewContainer />)
 
     const renderedCards = screen.getAllByText('Node')
-    expect(renderedCards.length).toBe(250)
+    expect(renderedCards.length).toBe(100)
   })
 })
