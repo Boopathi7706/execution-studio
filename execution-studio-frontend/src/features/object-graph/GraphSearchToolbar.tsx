@@ -5,15 +5,17 @@ interface GraphSearchToolbarProps {
   nodes: GraphNode[]
   selectedObjectId: string | null
   onSelectNode: (objectId: string) => void
+  onResetLayout?: () => void
 }
 
 /**
- * Search toolbar allowing searching heap nodes by Object ID or Class Type.
+ * Search toolbar allowing searching heap nodes by Object ID or Class Type and resetting layout.
  */
 export const GraphSearchToolbar: React.FC<GraphSearchToolbarProps> = ({
   nodes,
   selectedObjectId,
   onSelectNode,
+  onResetLayout,
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [isOpen, setIsOpen] = useState(false)
@@ -115,21 +117,42 @@ export const GraphSearchToolbar: React.FC<GraphSearchToolbarProps> = ({
         )}
       </div>
 
-      {selectedObjectId && (
-        <button
-          onClick={() => onSelectNode('')}
-          style={{
-            backgroundColor: 'transparent',
-            border: 'none',
-            color: 'var(--text-muted)',
-            fontSize: '11px',
-            cursor: 'pointer',
-            textDecoration: 'underline',
-          }}
-        >
-          Clear Selection
-        </button>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {onResetLayout && (
+          <button
+            onClick={onResetLayout}
+            title="Reset layout & center graph (Home)"
+            style={{
+              backgroundColor: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              borderRadius: '4px',
+              padding: '3px 8px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            ↺ Fit & Recenter Layout
+          </button>
+        )}
+
+        {selectedObjectId && (
+          <button
+            onClick={() => onSelectNode('')}
+            style={{
+              backgroundColor: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              fontSize: '11px',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+            }}
+          >
+            Clear Selection
+          </button>
+        )}
+      </div>
     </div>
   )
 }

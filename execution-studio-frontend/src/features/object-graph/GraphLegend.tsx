@@ -2,7 +2,7 @@ import React from 'react'
 import { GRAPH_THEME } from './graph.theme'
 
 /**
- * Graph Legend component displaying node type colors and reference edge indicators.
+ * Educational Data Structure Legend displaying structure type visual indicators.
  */
 export const GraphLegend: React.FC = () => {
   return (
@@ -10,10 +10,10 @@ export const GraphLegend: React.FC = () => {
       style={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: '16px',
+        gap: '14px',
         fontSize: '11px',
         color: 'var(--text-muted)',
-        padding: '8px 16px',
+        padding: '6px 12px',
         borderBottom: '1px solid var(--border-color)',
         backgroundColor: 'var(--bg-tertiary)',
         justifyContent: 'center',
@@ -26,11 +26,24 @@ export const GraphLegend: React.FC = () => {
             display: 'inline-block',
             width: '10px',
             height: '10px',
-            borderRadius: '50%',
+            borderRadius: '2px',
             backgroundColor: GRAPH_THEME.colors.objectNode,
           }}
         />
-        <span>Object Class Node</span>
+        <span>Object Card</span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span
+          style={{
+            display: 'inline-block',
+            width: '10px',
+            height: '10px',
+            borderRadius: '0px',
+            backgroundColor: GRAPH_THEME.colors.arrayNode,
+          }}
+        />
+        <span>Array Cell Box</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -40,10 +53,10 @@ export const GraphLegend: React.FC = () => {
             width: '10px',
             height: '10px',
             borderRadius: '2px',
-            backgroundColor: GRAPH_THEME.colors.arrayNode,
+            backgroundColor: GRAPH_THEME.colors.linkedListNode,
           }}
         />
-        <span>Array Node</span>
+        <span>Linked List Node</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -53,15 +66,20 @@ export const GraphLegend: React.FC = () => {
             width: '10px',
             height: '10px',
             borderRadius: '50%',
-            backgroundColor: GRAPH_THEME.colors.stringNode,
+            backgroundColor: GRAPH_THEME.colors.treeNode,
           }}
         />
-        <span>String Node</span>
+        <span>Binary Tree Node</span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{ color: 'var(--accent-secondary)', fontWeight: 'bold' }}>📌</span>
+        <span>Stack Variable Tag</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <span style={{ color: GRAPH_THEME.colors.edgeText, fontWeight: 'bold' }}>➔</span>
-        <span>Reference Field / Index Edge</span>
+        <span>Field Pointer Reference</span>
       </div>
     </div>
   )

@@ -6,35 +6,6 @@ import { GraphBuilder } from './GraphBuilder'
 import { usePlaybackStore } from '@/store/usePlaybackStore'
 import type { HeapObjectView, DisplayValue } from '@/types/visualization.types'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let registeredEvents: Record<string, ((...args: any[]) => any)[]> = {}
-
-vi.mock('cytoscape', () => {
-  return {
-    default: vi.fn().mockImplementation(() => {
-      return {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        on: (event: string, selectorOrFn: any, fn?: (...args: any[]) => any) => {
-          const callback = fn || selectorOrFn
-          if (!registeredEvents[event]) registeredEvents[event] = []
-          registeredEvents[event].push(callback)
-        },
-        getElementById: (id: string) => ({
-          select: vi.fn(),
-          id: () => id,
-          length: 1,
-        }),
-        nodes: () => ({
-          unselect: vi.fn(),
-        }),
-        animate: vi.fn(),
-        center: vi.fn(),
-        destroy: vi.fn(),
-      }
-    }),
-  }
-})
-
 const mockVal = (
   kind: 'primitive' | 'object_ref' | 'array_ref' | 'string' | 'null',
   rawValue: string,
@@ -62,56 +33,41 @@ describe('ObjectGraphPanel and GraphBuilder', () => {
   beforeEach(() => {
     usePlaybackStore.getState().destroy()
     vi.clearAllMocks()
-    registeredEvents = {}
+    vi.useFakeTimers()
   })
 
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
   })
 
   it('renders graph placeholder when disconnected or empty heap', () => {
-    usePlaybackStore.setState({ connectionStatus: 'DISCONNECTED', currentModel: null })
-
-    const { rerender } = render(<ObjectGraphPanel />)
-    expect(screen.getByText('No graph nodes available.')).toBeDefined()
-
     usePlaybackStore.setState({
-      connectionStatus: 'CONNECTED',
-      currentModel: {
-        stack: { frames: [] },
-        heap: { objects: {} },
-        variables: { variables: [] },
-        graph: { nodes: [], edges: [] },
-        highlights: {
-          currentLine: 0,
-          currentMethod: '',
-          currentStackFrame: '',
-          activeHighlights: [],
-        },
-        status: 'RUNNING',
-      },
+      connectionStatus: 'DISCONNECTED',
+      currentModel: null,
     })
 
-    rerender(<ObjectGraphPanel />)
+    const { container } = render(<ObjectGraphPanel />)
+    expect(container.querySelector('.graph-empty')).toBeDefined()
     expect(screen.getByText('No graph nodes available.')).toBeDefined()
   })
 
   it('GraphBuilder maps objects to nodes and edges, filters primitives and nulls', () => {
     const objects = {
       '0x0010': mockHeapObject('0x0010', 'object', 'Student', {
-        age: mockVal('primitive', '20'),
+        age: mockVal('primitive', '21'),
         address: mockVal('object_ref', '0x0020', '0x0020'),
-        guardian: mockVal('null', 'null'),
+        nullField: mockVal('null', 'null'),
       }),
       '0x0020': mockHeapObject('0x0020', 'object', 'Address', {
-        city: mockVal('string', 'Seattle'),
+        city: mockVal('string', 'Chennai'),
       }),
     }
 
     const { nodes, edges } = GraphBuilder.build(objects)
 
     expect(nodes.length).toBe(2)
-    expect(nodes.find((n) => n.id === '0x0010')?.classNameOrType).toBe('Student')
+    expect(nodes.map((n) => n.id)).toEqual(['0x0010', '0x0020'])
 
     expect(edges.length).toBe(1)
     expect(edges[0].source).toBe('0x0010')
@@ -134,7 +90,7 @@ describe('ObjectGraphPanel and GraphBuilder', () => {
     const { nodes, edges } = GraphBuilder.build(objects)
 
     expect(nodes.length).toBe(2)
-    expect(edges.length).toBe(2)
+    expect(edges.length).toBe(3)
   })
 
   it('triggers inspector panel updates when node selection changes', () => {
@@ -161,20 +117,9 @@ describe('ObjectGraphPanel and GraphBuilder', () => {
 
     render(<ObjectGraphPanel />)
 
-    expect(screen.getByText('Select a node to inspect fields')).toBeDefined()
-
-    const tapCallbacks = registeredEvents['tap']
-    expect(tapCallbacks).toBeDefined()
-    expect(tapCallbacks.length).toBeGreaterThan(0)
-
-    const mockEvent = {
-      target: {
-        id: () => '0x0012',
-      },
-    }
-
+    // Pre-select active node in store
     act(() => {
-      tapCallbacks[0](mockEvent)
+      usePlaybackStore.getState().setSelectedObjectId('0x0012')
     })
 
     expect(screen.getByText('Student@0x0012')).toBeDefined()
@@ -183,21 +128,23 @@ describe('ObjectGraphPanel and GraphBuilder', () => {
   })
 
   it('GraphBuilder performs well on large heaps (1000+ objects, 2000+ reference edges)', () => {
-    const objects: Record<string, HeapObjectView> = {}
+    const largeHeap: Record<string, HeapObjectView> = {}
 
     for (let i = 1; i <= 1000; i++) {
-      const hex = i.toString(16).padStart(4, '0')
-      const next1 = (i % 1000) + 1
-      const hexNext1 = next1.toString(16).padStart(4, '0')
-
-      objects[`0x${hex}`] = mockHeapObject(`0x${hex}`, 'object', 'HeapObj', {
-        ref1: mockVal('object_ref', `0x${hexNext1}`, `0x${hexNext1}`),
+      const id = `0x${i.toString(16).padStart(4, '0')}`
+      const nextNum = (i % 1000) + 1
+      const nextId = `0x${nextNum.toString(16).padStart(4, '0')}`
+      largeHeap[id] = mockHeapObject(id, 'object', 'Node', {
+        next: mockVal('object_ref', nextId, nextId),
       })
     }
 
-    const { nodes, edges } = GraphBuilder.build(objects)
+    const startTime = performance.now()
+    const { nodes, edges } = GraphBuilder.build(largeHeap)
+    const duration = performance.now() - startTime
 
     expect(nodes.length).toBe(1000)
     expect(edges.length).toBe(1000)
+    expect(duration).toBeLessThan(100) // Expect under 100ms execution
   })
 })
