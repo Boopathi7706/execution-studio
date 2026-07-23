@@ -1,11 +1,16 @@
 /* Desktop Debugger IDE Shell Layout Styles */
 
+/* ============================================================
+   RESIZER BAR
+   ============================================================ */
 .resizer-bar:hover,
 .resizer-bar:active {
   background-color: var(--accent-color) !important;
 }
 
-/* IDE Panel Containers */
+/* ============================================================
+   IDE PANEL CONTAINERS
+   ============================================================ */
 .workspace-panel {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -19,7 +24,7 @@
 }
 
 .panel-header {
-  padding: 8px 12px;
+  padding: 6px 12px;
   background-color: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-color);
   font-weight: 700;
@@ -45,36 +50,39 @@
   flex-direction: column;
 }
 
-/* Header & Status Bar Styles */
+/* ============================================================
+   HEADER & STATUS BAR STYLES
+   ============================================================ */
 .app-header {
-  height: 48px;
+  height: 44px;
   background-color: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 14px;
   flex-shrink: 0;
+  gap: 8px;
 }
 
 .app-footer {
-  height: 28px;
+  height: 24px;
   background-color: var(--bg-tertiary);
   border-top: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 14px;
   font-size: 11px;
   color: var(--text-muted);
   flex-shrink: 0;
 }
 
 .brand-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.4px;
+  letter-spacing: -0.3px;
 }
 
 .status-badge {
@@ -90,8 +98,8 @@
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background-color: var(--text-muted);
 }
@@ -102,31 +110,12 @@
 
 .status-dot.connecting {
   background-color: var(--accent-warning);
-  animation: pulse 1.5s infinite;
+  animation: es-status-pulse 1.5s infinite;
 }
 
-@keyframes pulse {
-  0% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.3;
-  }
-}
-
-/* Bottom Inspect Dock Grid */
-.inspect-dock-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  height: 100%;
-  min-height: 0;
-}
-
-/* Card Styling */
+/* ============================================================
+   CARD STYLING
+   ============================================================ */
 .card {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -140,7 +129,7 @@
 }
 
 .card-title {
-  padding: 8px 12px;
+  padding: 6px 12px;
   background-color: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-color);
   font-size: 11px;
@@ -159,7 +148,9 @@
   flex-direction: column;
 }
 
-/* Monaco Active Execution Line Highlighting */
+/* ============================================================
+   MONACO EDITOR LINE HIGHLIGHT
+   ============================================================ */
 .active-execution-line-highlight {
   background-color: rgba(168, 85, 247, 0.22) !important;
   border-left: 3.5px solid var(--accent-color) !important;
@@ -174,16 +165,121 @@
   margin-left: 4px;
 }
 
-/* Variables Row Highlighting Flash Animation */
+/* ============================================================
+   VARIABLE ROW FLASH
+   ============================================================ */
 @keyframes variable-row-flash-anim {
-  0% {
-    background-color: rgba(168, 85, 247, 0.4);
-  }
-  100% {
-    background-color: transparent;
-  }
+  0%   { background-color: rgba(168, 85, 247, 0.4); }
+  100% { background-color: transparent; }
 }
 
 .variable-row-flash {
   animation: variable-row-flash-anim 1s ease-out;
+}
+
+/* ============================================================
+   EXECUTION STUDIO V3 — ANIMATION KEYFRAMES
+   ============================================================ */
+
+/* New object allocated: fade in + scale up */
+@keyframes es-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Object destroyed: fade out + scale down */
+@keyframes es-fade-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}
+
+/* Array/field value changed: border glow pulse */
+@keyframes es-cell-pulse {
+  0%   { box-shadow: 0 0 0 0px rgba(56, 189, 248, 0.8); background-color: rgba(56, 189, 248, 0.25); }
+  50%  { box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.3); background-color: rgba(56, 189, 248, 0.15); }
+  100% { box-shadow: 0 0 0 0px rgba(56, 189, 248, 0); background-color: transparent; }
+}
+
+/* Field updated: yellow flash highlight */
+@keyframes es-highlight-flash {
+  0%   { background-color: rgba(234, 179, 8, 0.45); }
+  60%  { background-color: rgba(234, 179, 8, 0.2); }
+  100% { background-color: transparent; }
+}
+
+/* Stack frame enters: slides down */
+@keyframes es-frame-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stack frame exits: slides up */
+@keyframes es-frame-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+/* Explanation panel: slide-fade in */
+@keyframes es-explanation-in {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Status dot pulse */
+@keyframes es-status-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%       { opacity: 1; }
+}
+
+/* ============================================================
+   ANIMATION UTILITY CLASSES
+   ============================================================ */
+.es-anim-fade-in {
+  animation: es-fade-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.es-anim-cell-pulse {
+  animation: es-cell-pulse 0.35s ease-out both;
+}
+
+.es-anim-highlight-flash {
+  animation: es-highlight-flash 0.3s ease-out both;
+}
+
+.es-anim-frame-enter {
+  animation: es-frame-enter 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.es-anim-explanation-in {
+  animation: es-explanation-in 0.22s ease-out both;
 }

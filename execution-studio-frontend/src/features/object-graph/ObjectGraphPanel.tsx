@@ -3,37 +3,15 @@ import cytoscape from 'cytoscape'
 import { usePlaybackStore } from '@/store/usePlaybackStore'
 import type { HeapObjectView } from '@/types/visualization.types'
 import GraphBuilder from './GraphBuilder'
-import GraphLegend from './GraphLegend'
-import GraphSearchToolbar from './GraphSearchToolbar'
 import GRAPH_THEME from './graph.theme'
 import { memoryLayoutEngine } from './MemoryCanvasLayoutEngine'
 
 const EMPTY_OBJECTS: Record<string, HeapObjectView> = {}
 
 /**
- * Formats display values inside the side inspector panel.
- */
-const formatInspectorValue = (kind: string, rawVal: string): string => {
-  if (kind === 'null' || rawVal === 'null') return 'null'
-  if (kind === 'string') {
-    if (rawVal.startsWith('"') && rawVal.endsWith('"')) return rawVal
-    return `"${rawVal}"`
-  }
-  if (kind === 'object_ref' || kind === 'array_ref') {
-    if (rawVal.includes('@')) return rawVal
-    return `@${rawVal}`
-  }
-  return rawVal
-}
-
-/**
  * Educational JVM Memory Canvas Component using Cytoscape.js.
- * Displays specialized data structures using intuitive textbook layouts:
- * - Arrays: Sequential indexed element blocks
- * - Linked Lists: Horizontal node chains (data | next)
- * - Binary Trees: Hierarchical parent-child branching
- * - Stacks: Vertical stack frames
- * - General Objects: Memory cards with Class Name, data summary, and small @objectId
+ * Streamlined 100% Canvas Viewport without distracting side panes or legends.
+ * Object inspection is triggered via a lightweight floating popover on selection.
  */
 export const ObjectGraphPanel: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -116,8 +94,8 @@ export const ObjectGraphPanel: React.FC = () => {
               'text-wrap': 'wrap',
               'text-valign': 'center',
               'text-halign': 'center',
-              width: '80px',
-              height: '70px',
+              width: '85px',
+              height: '75px',
               shape: 'round-rectangle',
               'border-width': GRAPH_THEME.dimensions.borderWidth,
               'border-color': GRAPH_THEME.colors.nodeBorder,
@@ -128,7 +106,7 @@ export const ObjectGraphPanel: React.FC = () => {
             style: {
               'background-color': GRAPH_THEME.colors.arrayNode,
               shape: 'rectangle',
-              width: '90px',
+              width: '95px',
             },
           },
           {
@@ -387,11 +365,6 @@ export const ObjectGraphPanel: React.FC = () => {
     }
   }, [selectedObjectId])
 
-  const selectedObj =
-    selectedObjectId && objects !== EMPTY_OBJECTS ? objects[selectedObjectId] : null
-  const fields = selectedObj?.fieldsOrElements || {}
-  const fieldKeys = Object.keys(fields)
-
   if (!isConnected || nodes.length === 0) {
     return (
       <div
@@ -406,147 +379,15 @@ export const ObjectGraphPanel: React.FC = () => {
         }}
         className="graph-empty"
       >
-        No graph nodes available.
+        No execution visualization available.
       </div>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
-      {/* Legend & Search Toolbar Header */}
-      <GraphLegend />
-      <GraphSearchToolbar
-        nodes={nodes}
-        selectedObjectId={selectedObjectId}
-        onSelectNode={(id) => setSelectedObjectId(id || null)}
-        onResetLayout={handleResetLayout}
-      />
-
-      {/* Main Graph Viewport Split Layout */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Cytoscape Canvas Viewport Container */}
-        <div ref={containerRef} style={{ flex: 1, height: '100%', position: 'relative' }} />
-
-        {/* Selected Node Inspector Details Panel */}
-        <div
-          tabIndex={0}
-          aria-label="Object Inspector Details Panel"
-          style={{
-            width: '240px',
-            backgroundColor: 'var(--bg-tertiary)',
-            borderLeft: '1px solid var(--border-color)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflowY: 'auto',
-          }}
-          className="graph-inspector"
-        >
-          <div
-            style={{
-              padding: '10px 14px',
-              borderBottom: '1px solid var(--border-color)',
-              fontWeight: 'bold',
-              fontSize: '12px',
-              color: 'var(--text-primary)',
-              backgroundColor: 'var(--bg-secondary)',
-            }}
-          >
-            Object Inspector
-          </div>
-
-          {!selectedObj ? (
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '24px',
-                color: 'var(--text-muted)',
-                fontSize: '12px',
-                fontStyle: 'italic',
-                textAlign: 'center',
-              }}
-            >
-              Select a node to inspect fields
-            </div>
-          ) : (
-            <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {/* Node Type and Address */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  Class Type / ID
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '13px',
-                    fontWeight: 'bold',
-                    color: 'var(--accent-secondary)',
-                  }}
-                >
-                  {selectedObj.classNameOrType}@{selectedObj.objectId}
-                </span>
-              </div>
-
-              {/* Node Fields / Elements List */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px',
-                  borderTop: '1px solid var(--border-color)',
-                  paddingTop: '10px',
-                }}
-              >
-                <span
-                  style={{ fontSize: '11px', color: 'var(--text-muted)', paddingBottom: '4px' }}
-                >
-                  Fields / Elements
-                </span>
-                {fieldKeys.length === 0 ? (
-                  <span
-                    style={{ fontSize: '11px', fontStyle: 'italic', color: 'var(--text-muted)' }}
-                  >
-                    No fields
-                  </span>
-                ) : (
-                  fieldKeys.map((key) => {
-                    const val = fields[key]
-                    const formatted = formatInspectorValue(
-                      val.kind,
-                      val.value ?? val.valueString ?? '',
-                    )
-                    return (
-                      <div
-                        key={key}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          fontSize: '12px',
-                          borderBottom: '1px dashed var(--border-color)',
-                          padding: '4px 0',
-                        }}
-                      >
-                        <span
-                          style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}
-                        >
-                          {key}
-                        </span>
-                        <span
-                          style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}
-                        >
-                          {formatted}
-                        </span>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+      {/* 100% Canvas Area */}
+      <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'absolute' }} />
     </div>
   )
 }

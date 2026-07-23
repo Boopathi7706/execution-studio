@@ -1,82 +1,151 @@
-import React from 'react'
+import React, { useMemo, useCallback } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import { usePlaybackStore } from '@/store/usePlaybackStore'
-import { useLayoutStore, type DockTabId } from '@/store/useLayoutStore'
-import { Card } from '@/components/Card'
 import SourceViewerPanel from '@/features/source-viewer/SourceViewerPanel'
-import ObjectGraphPanel from '@/features/object-graph/ObjectGraphPanel'
-import ExecutionOverview from '@/features/workspace/ExecutionOverview'
-import CallStackPanel from '@/features/stack/CallStackPanel'
-import VariablesPanel from '@/features/variables/VariablesPanel'
-import HeapViewContainer from '@/features/heap/HeapViewContainer'
-import ObjectInspectorPanel from '@/features/object-graph/ObjectInspectorPanel'
-import ExecutionEventLogPanel from '@/features/timeline/ExecutionEventLogPanel'
-import TimelinePanel from '@/features/timeline/TimelinePanel'
+import { CallStackPanel } from '@/features/stack/CallStackPanel'
+import { MemoryVisualizationCanvas } from '@/features/visualization/MemoryVisualizationCanvas'
+import { ExplanationPanel } from '@/features/visualization/ExplanationPanel'
+import { FloatingObjectInspector } from '@/features/object-graph/FloatingObjectInspector'
+import { TimelinePanel } from '@/features/timeline/TimelinePanel'
+import { generateExplanation } from '@/features/visualization/generateExplanation'
+import type { HeapObjectView } from '@/types/visualization.types'
 
-/**
- * Resizable Splitter Handle Component using react-resizable-panels Separator.
- */
+const EMPTY_OBJECTS: Record<string, HeapObjectView> = {}
+
+// ── Resize Handle ─────────────────────────────────────────────────────────────
 const ResizeHandle: React.FC<{ orientation?: 'horizontal' | 'vertical' }> = ({
   orientation = 'horizontal',
 }) => (
   <Separator
     style={{
-      width: orientation === 'horizontal' ? '6px' : '100%',
-      height: orientation === 'vertical' ? '6px' : '100%',
+      width: orientation === 'horizontal' ? '5px' : '100%',
+      height: orientation === 'vertical' ? '5px' : '100%',
       backgroundColor: 'var(--border-color)',
       cursor: orientation === 'horizontal' ? 'col-resize' : 'row-resize',
-      transition: 'background-color var(--transition-fast)',
-      position: 'relative',
-      zIndex: 10,
+      transition: 'background-color 0.15s ease',
+      flexShrink: 0,
     }}
     className="resizer-bar"
   />
 )
 
+// ── Panel Title Bar ───────────────────────────────────────────────────────────
+const PanelTitle: React.FC<{ label: string; icon?: string; right?: React.ReactNode }> = ({
+  label,
+  icon,
+  right,
+}) => (
+  <div
+    style={{
+      padding: '5px 10px',
+      backgroundColor: 'var(--bg-tertiary)',
+      borderBottom: '1px solid var(--border-color)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      fontSize: '11px',
+      fontWeight: '700',
+      color: 'var(--text-muted)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+      flexShrink: 0,
+      userSelect: 'none',
+    }}
+  >
+    <span>
+      {icon && <span style={{ marginRight: '5px' }}>{icon}</span>}
+      {label}
+    </span>
+    {right}
+  </div>
+)
+
+// ── Empty State ───────────────────────────────────────────────────────────────
+const WelcomeState: React.FC = () => (
+  <div
+    style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100%',
+      gap: '16px',
+      color: 'var(--text-muted)',
+      padding: '24px',
+    }}
+  >
+    <div style={{ fontSize: '48px' }}>☕</div>
+    <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
+      Execution Studio
+    </div>
+    <div
+      style={{
+        fontSize: '12px',
+        textAlign: 'center',
+        maxWidth: '260px',
+        lineHeight: '1.6',
+        color: 'var(--text-muted)',
+      }}
+    >
+      Write Java code in the editor, then click{' '}
+      <strong style={{ color: 'var(--accent-success)' }}>▶ Run</strong> to visualize execution.
+    </div>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        fontSize: '11px',
+        color: 'var(--text-muted)',
+        maxWidth: '220px',
+      }}
+    >
+      {['Stack frames and local variables', 'Heap objects and references', 'Arrays, linked lists, trees'].map((item) => (
+        <div key={item} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+          <span>✓</span>
+          <span>{item}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+)
+
 /**
- * Execution Studio Version 2.0 Dockable IDE Workspace Container.
- * State-Aware Architecture:
- * - BEFORE EXECUTION: Renders Source Editor (Left) & Execution Overview (Right).
- * - AFTER TRACE LOADED: Renders Source Editor (Left) & Object Reference Graph (Right - ALWAYS VISIBLE!).
- * - BOTTOM DOCK: Resizable tabbed dock switching between Variables, Heap Cards, Call Stack, Inspector, and Event Log.
- * - BOTTOM BAR: Full-width Timeline player bar.
+ * Execution Studio V3 — Fixed Viewport Workspace.
+ *
+ * Layout:
+ *   Left 65%: Java Source Editor
+ *   Right 35%:
+ *     Top: Call Stack (resizable) | Memory Visualization Canvas
+ *     Bottom: Explanation Panel (fixed height)
+ *   Bottom Bar: Playback Controls | Console Output
+ *
+ * The page NEVER scrolls. Only internal panels scroll.
  */
 export const WorkspaceContainer: React.FC = () => {
   const connectionStatus = usePlaybackStore((state) => state.connectionStatus)
-  const isTraceLoaded = connectionStatus === 'CONNECTED'
+  const currentModel = usePlaybackStore((state) => state.currentModel)
+  const previousModel = usePlaybackStore((state) => state.previousModel)
+  const selectedObjectId = usePlaybackStore((state) => state.selectedObjectId)
+  const setSelectedObjectId = usePlaybackStore((state) => state.setSelectedObjectId)
 
-  const activeDockTab = useLayoutStore((state) => state.activeDockTab)
-  const setActiveDockTab = useLayoutStore((state) => state.setActiveDockTab)
-  const panelVisibilities = useLayoutStore((state) => state.panelVisibilities)
+  const isConnected = connectionStatus === 'CONNECTED'
 
-  const isEditorVisible = panelVisibilities.editor ?? true
-  const isGraphVisible = panelVisibilities.graph ?? true
-  const isTimelineVisible = panelVisibilities.timeline ?? true
+  const objects = isConnected && currentModel?.heap?.objects ? currentModel.heap.objects : EMPTY_OBJECTS
+  const prevObjects = previousModel?.heap?.objects ?? EMPTY_OBJECTS
+  const variables = currentModel?.variables?.variables ?? []
 
-  const dockTabs: { id: DockTabId; label: string }[] = [
-    { id: 'variables', label: 'Local Variables' },
-    { id: 'heap', label: 'Heap Memory Cards' },
-    { id: 'stack', label: 'Call Stack' },
-    { id: 'inspector', label: 'Object Inspector' },
-    { id: 'events', label: 'Execution Event Log' },
-  ]
+  const handleObjectClick = useCallback(
+    (id: string) => {
+      setSelectedObjectId(id === selectedObjectId ? null : id)
+    },
+    [selectedObjectId, setSelectedObjectId],
+  )
 
-  const renderActiveDockContent = () => {
-    switch (activeDockTab) {
-      case 'variables':
-        return <VariablesPanel />
-      case 'heap':
-        return <HeapViewContainer />
-      case 'stack':
-        return <CallStackPanel />
-      case 'inspector':
-        return <ObjectInspectorPanel />
-      case 'events':
-        return <ExecutionEventLogPanel />
-      default:
-        return <VariablesPanel />
-    }
-  }
+  const explanation = useMemo(
+    () => (isConnected ? generateExplanation(previousModel, currentModel) : ''),
+    [isConnected, previousModel, currentModel],
+  )
 
   return (
     <div
@@ -86,135 +155,261 @@ export const WorkspaceContainer: React.FC = () => {
         height: '100%',
         width: '100%',
         overflow: 'hidden',
-        padding: '8px',
-        gap: '8px',
+        padding: '6px',
+        gap: '6px',
         backgroundColor: 'var(--bg-primary)',
+        position: 'relative',
       }}
     >
-      {/* Vertical Panel Group: Main Viewport (Top) & Inspection Dock (Bottom) */}
-      <Group orientation="vertical" style={{ height: '100%', width: '100%' }}>
-        {/* Top Main Viewport Panel */}
-        <Panel defaultSize={65} minSize={30}>
-          <Group orientation="horizontal" style={{ height: '100%', width: '100%' }}>
-            {/* Left Column: Java Source Editor */}
-            {isEditorVisible && (
-              <Panel defaultSize={50} minSize={25}>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    height: '100%',
-                    minHeight: 0,
-                    backgroundColor: 'var(--bg-secondary)',
-                  }}
-                  className="workspace-panel"
-                >
-                  <div className="panel-header">
-                    <span>Java Source Code Editor</span>
-                  </div>
-                  <div className="panel-body" style={{ padding: 0, overflow: 'hidden', display: 'flex' }}>
-                    <SourceViewerPanel />
-                  </div>
-                </div>
-              </Panel>
-            )}
+      {/* Floating Object Inspector Popover */}
+      {selectedObjectId && (
+        <FloatingObjectInspector
+          objectId={selectedObjectId}
+          onClose={() => setSelectedObjectId(null)}
+        />
+      )}
 
-            {isEditorVisible && isGraphVisible && <ResizeHandle orientation="horizontal" />}
+      {/* Main Resizable Panel Group */}
+      <Group orientation="vertical" style={{ flex: 1, minHeight: 0 }}>
+        {/* Top row: Editor | Visualization */}
+        <Panel defaultSize={75} minSize={40}>
+          <Group orientation="horizontal" style={{ height: '100%' }}>
+            {/* ── Left: Java Source Editor ─────────────────────────────── */}
+            <Panel defaultSize={62} minSize={25}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                }}
+                className="workspace-panel"
+              >
+                <SourceViewerPanel />
+              </div>
+            </Panel>
 
-            {/* Right Column: State-Aware Viewport (Execution Overview or Object Graph) */}
-            {isGraphVisible && (
-              <Panel defaultSize={50} minSize={25}>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    height: '100%',
-                    minHeight: 0,
-                    backgroundColor: 'var(--bg-secondary)',
-                  }}
-                  className="workspace-panel"
-                >
-                  <div className="panel-header">
-                    <span>
-                      {isTraceLoaded
-                        ? 'Interactive Object Reference Graph'
-                        : 'Execution Studio Landing Overview'}
-                    </span>
-                  </div>
-                  <div className="panel-body" style={{ padding: 0, overflow: 'hidden', display: 'flex' }}>
-                    {isTraceLoaded ? <ObjectGraphPanel /> : <ExecutionOverview />}
-                  </div>
-                </div>
-              </Panel>
-            )}
+            <ResizeHandle orientation="horizontal" />
+
+            {/* ── Right: Execution Visualization ───────────────────────── */}
+            <Panel defaultSize={38} minSize={25}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                }}
+              >
+                {!isConnected ? (
+                  <WelcomeState />
+                ) : (
+                  <>
+                    <Group orientation="horizontal" style={{ flex: 1, minHeight: 0 }}>
+                      {/* Call Stack sub-panel */}
+                      <Panel defaultSize={34} minSize={20}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            height: '100%',
+                            borderRight: '1px solid var(--border-color)',
+                          }}
+                        >
+                          <PanelTitle label="Call Stack" icon="🥞" />
+                          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                            <CallStackPanel />
+                          </div>
+                        </div>
+                      </Panel>
+
+                      <ResizeHandle orientation="horizontal" />
+
+                      {/* Heap Memory Visualization sub-panel */}
+                      <Panel defaultSize={66} minSize={30}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            height: '100%',
+                          }}
+                        >
+                          <PanelTitle label="Heap Memory" icon="🧠" />
+                          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                            <MemoryVisualizationCanvas
+                              objects={objects}
+                              prevObjects={prevObjects}
+                              variables={variables}
+                              selectedObjectId={selectedObjectId}
+                              onObjectClick={handleObjectClick}
+                            />
+                          </div>
+                        </div>
+                      </Panel>
+                    </Group>
+
+                    {/* Explanation Panel — fixed height strip at bottom of right pane */}
+                    <ExplanationPanel text={explanation} />
+                  </>
+                )}
+              </div>
+            </Panel>
           </Group>
         </Panel>
 
         <ResizeHandle orientation="vertical" />
 
-        {/* Bottom Resizable Inspection Dock */}
-        <Panel defaultSize={35} minSize={15}>
-          <Card title="Workspace Inspection Dock">
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
-              {/* Tab Header Bar */}
+        {/* Bottom row: Playback Controls | Console */}
+        <Panel defaultSize={25} minSize={12}>
+          <Group orientation="horizontal" style={{ height: '100%' }}>
+            {/* Playback Controls */}
+            <Panel defaultSize={55} minSize={30}>
               <div
                 style={{
                   display: 'flex',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  borderBottom: '1px solid var(--border-color)',
-                  overflowX: 'auto',
+                  flexDirection: 'column',
+                  height: '100%',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
                 }}
               >
-                {dockTabs.map((tab) => {
-                  const isActive = activeDockTab === tab.id
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveDockTab(tab.id)}
-                      style={{
-                        padding: '6px 14px',
-                        backgroundColor: isActive ? 'var(--bg-secondary)' : 'transparent',
-                        color: isActive ? 'var(--accent-secondary)' : 'var(--text-muted)',
-                        border: 'none',
-                        borderRight: '1px solid var(--border-color)',
-                        fontWeight: isActive ? 'bold' : 'normal',
-                        fontSize: '11px',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                      }}
-                      aria-label={`Switch to ${tab.label} tab`}
-                    >
-                      {tab.label}
-                    </button>
-                  )
-                })}
+                <PanelTitle label="Playback Controls" icon="⏯" />
+                <div
+                  style={{
+                    flex: 1,
+                    padding: '8px 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <TimelinePanel />
+                </div>
               </div>
+            </Panel>
 
-              {/* Active Tab Body Viewport */}
-              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                {renderActiveDockContent()}
+            <ResizeHandle orientation="horizontal" />
+
+            {/* Console Output */}
+            <Panel defaultSize={45} minSize={20}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                }}
+              >
+                <ConsoleOutput />
               </div>
-            </div>
-          </Card>
+            </Panel>
+          </Group>
         </Panel>
       </Group>
-
-      {/* Bottom Timeline Playback Navigation Toolbar */}
-      {isTimelineVisible && (
-        <div
-          style={{
-            flex: '0 0 auto',
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '6px',
-            padding: '8px 12px',
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
-          <TimelinePanel />
-        </div>
-      )}
     </div>
+  )
+}
+
+// ── Inline Console Output ─────────────────────────────────────────────────────
+
+const ConsoleOutput: React.FC = () => {
+  const connectionStatus = usePlaybackStore((s) => s.connectionStatus)
+  const currentModel = usePlaybackStore((s) => s.currentModel)
+  const error = usePlaybackStore((s) => s.error)
+  const isConnected = connectionStatus === 'CONNECTED'
+
+  const currentLine = currentModel?.highlights?.currentLine ?? 0
+  const currentMethod = currentModel?.highlights?.currentMethod ?? ''
+  const status = currentModel?.status ?? null
+
+  return (
+    <>
+      <PanelTitle
+        label="Console"
+        icon="💻"
+        right={
+          isConnected ? (
+            <span
+              style={{
+                fontSize: '10px',
+                padding: '1px 6px',
+                borderRadius: '3px',
+                backgroundColor:
+                  status === 'COMPLETED'
+                    ? 'rgba(34, 197, 94, 0.15)'
+                    : status === 'EXCEPTION'
+                      ? 'rgba(239, 68, 68, 0.15)'
+                      : 'rgba(56, 189, 248, 0.12)',
+                color:
+                  status === 'COMPLETED'
+                    ? 'var(--accent-success)'
+                    : status === 'EXCEPTION'
+                      ? 'var(--accent-error)'
+                      : 'var(--accent-secondary)',
+                fontWeight: 'bold',
+              }}
+            >
+              {status ?? 'IDLE'}
+            </span>
+          ) : null
+        }
+      />
+      <div
+        style={{
+          flex: 1,
+          padding: '8px 10px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '12px',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          backgroundColor: '#090d16',
+          color: '#f8fafc',
+        }}
+      >
+        {error && (
+          <div style={{ color: 'var(--accent-error)' }}>⚠ {error}</div>
+        )}
+        {!isConnected ? (
+          <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            Console idle. Click ▶ Run to execute Java code.
+          </div>
+        ) : (
+          <>
+            <div style={{ color: 'var(--accent-success)' }}>
+              [JVM] Trace loaded successfully.
+            </div>
+            {currentMethod && (
+              <div style={{ color: '#f8fafc' }}>
+                {currentMethod}() : line {currentLine}
+              </div>
+            )}
+            {status === 'EXCEPTION' && (
+              <div style={{ color: 'var(--accent-error)' }}>
+                ⚠ Runtime exception occurred.
+              </div>
+            )}
+            {status === 'COMPLETED' && (
+              <div style={{ color: 'var(--accent-success)' }}>
+                ✓ Program completed normally.
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
   )
 }
 

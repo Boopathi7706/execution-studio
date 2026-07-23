@@ -1,5 +1,34 @@
-import type { HeapObjectView } from '@/types/visualization.types'
+import type { HeapObjectView, DisplayValue } from '@/types/visualization.types'
 import type { GraphNodeType } from './GraphNode'
+
+/**
+ * Checks if a field's value is a reference or null reference (not a primitive int/string/boolean).
+ */
+function isReferenceField(val?: DisplayValue): boolean {
+  if (!val) return false
+  if (val.kind === 'null' || val.value === 'null' || val.valueString === 'null') return true
+  if (val.kind === 'object_ref' || val.kind === 'array_ref') return true
+  if (val.objectId || (typeof val.value === 'string' && val.value.startsWith('obj_'))) return true
+  return false
+}
+
+/**
+ * Checks if a field name matches a structural pointer name (e.g. 'next', 'prev', 'left', 'right')
+ * and its value is actually an object reference or null.
+ */
+function isStructuralRef(fieldName: string, targetName: 'next' | 'prev' | 'left' | 'right', val?: DisplayValue): boolean {
+  const lower = fieldName.toLowerCase()
+  const matchesName =
+    lower === targetName ||
+    lower === `${targetName}node` ||
+    lower === `${targetName}_node` ||
+    lower === `${targetName}child` ||
+    lower === `${targetName}_child` ||
+    lower.endsWith(`_${targetName}`) ||
+    lower.endsWith(targetName)
+
+  return matchesName && isReferenceField(val)
+}
 
 /**
  * Intelligent Data Structure Classifier for Educational Memory Visualization.
@@ -37,12 +66,12 @@ export class DataStructureClassifier {
       return { type: 'ARRAY', summary }
     }
 
-    // 3. Binary Tree Node (contains both 'left' and 'right')
-    const hasLeft = fieldNames.some((f) => f.toLowerCase().includes('left'))
-    const hasRight = fieldNames.some((f) => f.toLowerCase().includes('right'))
+    // 3. Binary Tree Node (contains valid reference fields for 'left' or 'right')
+    const hasLeft = fieldNames.some((f) => isStructuralRef(f, 'left', fields[f]))
+    const hasRight = fieldNames.some((f) => isStructuralRef(f, 'right', fields[f]))
     if (hasLeft || hasRight) {
       const valKey = fieldNames.find(
-        (f) => !f.toLowerCase().includes('left') && !f.toLowerCase().includes('right'),
+        (f) => !isStructuralRef(f, 'left', fields[f]) && !isStructuralRef(f, 'right', fields[f]),
       )
       const valStr = valKey
         ? `${valKey}: ${fields[valKey]?.value ?? fields[valKey]?.valueString ?? ''}`
@@ -50,12 +79,12 @@ export class DataStructureClassifier {
       return { type: 'BINARY_TREE', summary: valStr }
     }
 
-    // 4. Linked List Node (contains 'next' or 'prev')
-    const hasNext = fieldNames.some((f) => f.toLowerCase().includes('next'))
-    const hasPrev = fieldNames.some((f) => f.toLowerCase().includes('prev'))
+    // 4. Linked List Node (contains valid reference fields for 'next' or 'prev')
+    const hasNext = fieldNames.some((f) => isStructuralRef(f, 'next', fields[f]))
+    const hasPrev = fieldNames.some((f) => isStructuralRef(f, 'prev', fields[f]))
     if (hasNext || hasPrev) {
       const valKey = fieldNames.find(
-        (f) => !f.toLowerCase().includes('next') && !f.toLowerCase().includes('prev'),
+        (f) => !isStructuralRef(f, 'next', fields[f]) && !isStructuralRef(f, 'prev', fields[f]),
       )
       const valStr = valKey
         ? `${valKey}: ${fields[valKey]?.value ?? fields[valKey]?.valueString ?? ''}`
@@ -66,7 +95,7 @@ export class DataStructureClassifier {
     // 5. Stack
     if (
       typeStr.toLowerCase().includes('stack') ||
-      fieldNames.some((f) => f.toLowerCase().includes('top'))
+      fieldNames.some((f) => f.toLowerCase() === 'top' && (isReferenceField(fields[f]) || fields[f]?.kind === 'int'))
     ) {
       return { type: 'STACK', summary: 'Stack' }
     }
@@ -74,7 +103,7 @@ export class DataStructureClassifier {
     // 6. Queue
     if (
       typeStr.toLowerCase().includes('queue') ||
-      fieldNames.some((f) => f.toLowerCase().includes('front'))
+      fieldNames.some((f) => f.toLowerCase() === 'front')
     ) {
       return { type: 'QUEUE', summary: 'Queue' }
     }

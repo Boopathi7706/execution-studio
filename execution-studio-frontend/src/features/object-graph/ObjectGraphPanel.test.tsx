@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, act } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { ObjectGraphPanel } from './ObjectGraphPanel'
 import { GraphBuilder } from './GraphBuilder'
 import { usePlaybackStore } from '@/store/usePlaybackStore'
@@ -49,7 +49,7 @@ describe('ObjectGraphPanel and GraphBuilder', () => {
 
     const { container } = render(<ObjectGraphPanel />)
     expect(container.querySelector('.graph-empty')).toBeDefined()
-    expect(screen.getByText('No graph nodes available.')).toBeDefined()
+    expect(screen.getByText('No execution visualization available.')).toBeDefined()
   })
 
   it('GraphBuilder maps objects to nodes and edges, filters primitives and nulls', () => {
@@ -91,40 +91,6 @@ describe('ObjectGraphPanel and GraphBuilder', () => {
 
     expect(nodes.length).toBe(2)
     expect(edges.length).toBe(3)
-  })
-
-  it('triggers inspector panel updates when node selection changes', () => {
-    const obj = mockHeapObject('0x0012', 'object', 'Student', {
-      name: mockVal('string', 'Alice'),
-    })
-
-    usePlaybackStore.setState({
-      connectionStatus: 'CONNECTED',
-      currentModel: {
-        stack: { frames: [] },
-        heap: { objects: { '0x0012': obj } },
-        variables: { variables: [] },
-        graph: { nodes: [], edges: [] },
-        highlights: {
-          currentLine: 0,
-          currentMethod: '',
-          currentStackFrame: '',
-          activeHighlights: [],
-        },
-        status: 'RUNNING',
-      },
-    })
-
-    render(<ObjectGraphPanel />)
-
-    // Pre-select active node in store
-    act(() => {
-      usePlaybackStore.getState().setSelectedObjectId('0x0012')
-    })
-
-    expect(screen.getByText('Student@0x0012')).toBeDefined()
-    expect(screen.getByText('name')).toBeDefined()
-    expect(screen.getByText('"Alice"')).toBeDefined()
   })
 
   it('GraphBuilder performs well on large heaps (1000+ objects, 2000+ reference edges)', () => {
