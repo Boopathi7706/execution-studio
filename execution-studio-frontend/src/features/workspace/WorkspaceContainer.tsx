@@ -9,6 +9,7 @@ import { FloatingObjectInspector } from '@/features/object-graph/FloatingObjectI
 import { TimelinePanel } from '@/features/timeline/TimelinePanel'
 import { ReferencePointerOverlay } from '@/features/visualization/ReferencePointerOverlay'
 import { generateExplanation } from '@/features/visualization/generateExplanation'
+import { ConsolePanel } from './ConsolePanel'
 import type { HeapObjectView } from '@/types/visualization.types'
 
 const EMPTY_OBJECTS: Record<string, HeapObjectView> = {}
@@ -103,6 +104,7 @@ export const WorkspaceContainer: React.FC = () => {
   const previousModel = usePlaybackStore((state) => state.previousModel)
   const selectedObjectId = usePlaybackStore((state) => state.selectedObjectId)
   const setSelectedObjectId = usePlaybackStore((state) => state.setSelectedObjectId)
+  const currentStep = usePlaybackStore((state) => state.currentStep)
 
   const vizContainerRef = useRef<HTMLDivElement | null>(null)
 
@@ -121,8 +123,8 @@ export const WorkspaceContainer: React.FC = () => {
   )
 
   const explanation = useMemo(
-    () => (isConnected ? generateExplanation(previousModel, currentModel) : ''),
-    [isConnected, previousModel, currentModel],
+    () => (isConnected ? generateExplanation(previousModel, currentModel, currentStep) : ''),
+    [isConnected, previousModel, currentModel, currentStep],
   )
 
   return (
@@ -326,11 +328,7 @@ export const WorkspaceContainer: React.FC = () => {
 const ConsoleOutput: React.FC = () => {
   const connectionStatus = usePlaybackStore((s) => s.connectionStatus)
   const currentModel = usePlaybackStore((s) => s.currentModel)
-  const error = usePlaybackStore((s) => s.error)
   const isConnected = connectionStatus === 'CONNECTED'
-
-  const currentLine = currentModel?.highlights?.currentLine ?? 0
-  const currentMethod = currentModel?.highlights?.currentMethod ?? ''
   const status = currentModel?.status ?? null
 
   return (
@@ -365,49 +363,8 @@ const ConsoleOutput: React.FC = () => {
           ) : null
         }
       />
-      <div
-        style={{
-          flex: 1,
-          padding: '8px 12px',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '12px',
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '4px',
-          backgroundColor: '#090d16',
-          color: '#f8fafc',
-        }}
-      >
-        {error && (
-          <div style={{ color: '#ef4444' }}>⚠ {error}</div>
-        )}
-        {!isConnected ? (
-          <div style={{ color: '#64748b', fontStyle: 'italic' }}>
-            Console idle. Click ▶ Run to execute Java code.
-          </div>
-        ) : (
-          <>
-            <div style={{ color: '#22c55e' }}>
-              Program started successfully.
-            </div>
-            {currentMethod && (
-              <div style={{ color: '#94a3b8' }}>
-                Executing {currentMethod}() at line {currentLine}
-              </div>
-            )}
-            {status === 'EXCEPTION' && (
-              <div style={{ color: '#ef4444' }}>
-                ⚠ Runtime exception occurred.
-              </div>
-            )}
-            {status === 'COMPLETED' && (
-              <div style={{ color: '#22c55e' }}>
-                ✓ Program completed normally.
-              </div>
-            )}
-          </>
-        )}
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <ConsolePanel />
       </div>
     </>
   )

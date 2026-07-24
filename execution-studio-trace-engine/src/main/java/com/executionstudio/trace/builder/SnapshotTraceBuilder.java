@@ -57,13 +57,15 @@ public class SnapshotTraceBuilder implements TraceBuilder {
                 le.seq(), le.type(),
                 le.sourceFile(), le.className(), le.methodName(), le.lineNumber(),
                 le.callStack(), le.heap(),
-                null, null
+                null, null,
+                le.outputEvents(), le.returnValue()
             );
             case ExceptionEvent ee -> new TraceEvent(
                 ee.seq(), ee.type(),
                 ee.sourceFile(), ee.className(), ee.methodName(), ee.lineNumber(),
                 ee.callStack(), ee.heap(),
-                ee.exceptionType(), ee.exceptionMessage()
+                ee.exceptionType(), ee.exceptionMessage(),
+                ee.outputEvents(), null
             );
         };
     }

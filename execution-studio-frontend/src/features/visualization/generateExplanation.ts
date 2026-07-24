@@ -2,7 +2,7 @@ import type { VisualizationModel, HeapObjectView, VariableView } from '@/types/v
 
 /**
  * Generates a single human-readable sentence explaining what happened during an execution step.
- * Designed to teach JVM concepts, not merely describe state changes.
+ * Designed to teach JVM concepts, transforming technical state into pedagogical insights.
  *
  * @param prev - The VisualizationModel from the previous step (null on first step)
  * @param curr - The current VisualizationModel
@@ -11,11 +11,75 @@ import type { VisualizationModel, HeapObjectView, VariableView } from '@/types/v
 export function generateExplanation(
   prev: VisualizationModel | null,
   curr: VisualizationModel | null,
+  step?: any | null,
 ): string {
   if (!curr) return ''
 
+  // ── 0. Handle Uncaught Exceptions (Transforming Raw Exception Metadata) ──
+  if (curr.status === 'EXCEPTION' || curr.exceptionInfo) {
+    const ex = curr.exceptionInfo
+    const line = ex?.lineNumber || curr.highlights?.currentLine || 1
+    const exType = ex?.exceptionType || 'java.lang.RuntimeException'
+    const shortType = simplifyType(exType)
+    const rawMsg = ex?.exceptionMessage ? `: "${ex.exceptionMessage}"` : ''
+
+    if (shortType === 'NullPointerException' || exType.includes('NullPointerException')) {
+      return `NullPointerException at line ${line} — Attempted to access a field, method, or element on a null reference.`
+    }
+    if (shortType === 'ArrayIndexOutOfBoundsException' || exType.includes('ArrayIndexOutOfBoundsException')) {
+      return `ArrayIndexOutOfBoundsException at line ${line} — Attempted to access an array index out of valid bounds${rawMsg}.`
+    }
+    if (shortType === 'ArithmeticException' || exType.includes('ArithmeticException')) {
+      return `ArithmeticException at line ${line} — Encountered an invalid mathematical operation (e.g. division by zero)${rawMsg}.`
+    }
+    return `Uncaught ${shortType}${rawMsg} at line ${line} — Execution terminated.`
+  }
+
+  // ── 0.5. Consume Educational Timeline Stack Transition Events if Step is Present ──
+  if (step && step.executionPhase && step.executionPhase !== 'NORMAL_LINE') {
+    const phase = step.executionPhase
+    const transition = step.transition
+
+    if (phase === 'PROGRAM_START') {
+      const entry = transition?.calleeMethod || step.highlightedMethod || 'main'
+      return `Program execution started in ${entry}().`
+    }
+
+    if (phase === 'METHOD_ENTRY') {
+      const caller = transition?.callerMethod ? `${transition.callerMethod}()` : 'main()'
+      const callee = transition?.calleeMethod || step.highlightedMethod || 'method'
+      if (transition?.isRecursion) {
+        return `${callee}() called ${callee}() recursively. A new stack frame was created.`
+      }
+      return `${caller} called ${callee}(). A new stack frame was created.`
+    }
+
+    if (phase === 'CONSTRUCTOR_ENTRY') {
+      const caller = transition?.callerMethod ? `${transition.callerMethod}()` : 'main()'
+      const callee = transition?.calleeClass ? simplifyType(transition.calleeClass) : 'Object'
+      return `${caller} invoked the ${callee} constructor. A new ${callee}() stack frame was created.`
+    }
+
+    if (phase === 'METHOD_EXIT') {
+      const callee = transition?.calleeMethod || step.highlightedMethod || 'method'
+      const caller = transition?.callerMethod ? `${transition.callerMethod}()` : 'the caller'
+      const rawRet = transition?.returnValue || curr.returnValue
+      if (rawRet) {
+        const valStr = formatValueString(rawRet)
+        return `${callee}() returned ${valStr} to ${caller}. Its stack frame was removed.`
+      }
+      return `${callee}() completed and returned control to ${caller}.`
+    }
+
+    if (phase === 'CONSTRUCTOR_EXIT') {
+      const callee = transition?.calleeClass ? simplifyType(transition.calleeClass) : 'Object'
+      const caller = transition?.callerMethod ? `${transition.callerMethod}()` : 'the caller'
+      return `${callee}() finished initialization and returned control to ${caller}.`
+    }
+  }
+
   const currentLine = curr.highlights?.currentLine ?? 0
-  const currentMethod = curr.highlights?.currentMethod ?? 'main'
+  const currentMethod = formatMethodName(curr.highlights?.currentMethod ?? 'main')
 
   // ── 1. Method call: new frame appeared on top of stack ──────────────────
   const currFrames = curr.stack?.frames ?? []
@@ -24,18 +88,22 @@ export function generateExplanation(
     const newFrame = currFrames[0]
     const callerFrame = currFrames[1]
     if (newFrame) {
-      const caller = callerFrame ? `${callerFrame.methodName}()` : 'main()'
-      return `Called ${newFrame.methodName}() from ${caller} — execution enters a new stack frame at line ${newFrame.lineNumber}.`
+      const newMethodName = formatMethodName(newFrame.methodName, newFrame.className)
+      const caller = callerFrame ? `${formatMethodName(callerFrame.methodName, callerFrame.className)}()` : 'main()'
+      return `Called ${newMethodName}() from ${caller} — execution enters a new stack frame at line ${newFrame.lineNumber}.`
     }
   }
 
-  // ── 2. Method return: a frame disappeared ───────────────────────────────
+  // ── 2. Method return: a frame disappeared or returnValue is present ──────
   if (currFrames.length < prevFrames.length && prevFrames.length > 0) {
     const returnedFrame = prevFrames[0]
     const returningTo = currFrames[0]
     if (returnedFrame) {
-      const to = returningTo ? `${returningTo.methodName}()` : 'the caller'
-      return `${returnedFrame.methodName}() finished and returned to ${to}.`
+      const retMethodName = formatMethodName(returnedFrame.methodName, returnedFrame.className)
+      const to = returningTo ? `${formatMethodName(returningTo.methodName, returningTo.className)}()` : 'the caller'
+      const retValStr = curr.returnValue ? formatValueString(curr.returnValue) : null
+      const retClause = retValStr ? ` and returned value ${retValStr}` : ' and returned'
+      return `${retMethodName}() finished${retClause} to ${to}.`
     }
   }
 
@@ -115,6 +183,24 @@ export function generateExplanation(
   }
 
   return `Program is running.`
+}
+
+// ── Helper: Exact '<init>' constructor label formatting ───────────────────
+function formatMethodName(methodName: string, className?: string): string {
+  if (!methodName) return 'main'
+  if (methodName === '<init>') {
+    return simplifyType(className || 'Object')
+  }
+  return methodName
+}
+
+// ── Helper: DisplayValue formatting ──────────────────────────────────────
+function formatValueString(val: import('@/types/visualization.types').DisplayValue): string {
+  if (!val) return 'null'
+  if (val.kind === 'null') return 'null'
+  if (val.kind === 'string') return `"${val.valueString || val.value || ''}"`
+  if (val.objectId) return `reference ${val.objectId}`
+  return val.valueString || String(val.value ?? '')
 }
 
 // ── Helper: simplify java.lang.String → String ────────────────────────────

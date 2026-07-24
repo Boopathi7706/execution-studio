@@ -96,7 +96,11 @@ public class DefaultTraceEngine implements TraceEngine {
             CompilationResult compilationResult = compiler.compile(config.getSourceFile(), tempDir);
 
             if (!compilationResult.success()) {
-                throw new TraceEngineException("Compilation failed for " + request.getSourceFile().getFileName());
+                String diagMsg = String.join("\n", compilationResult.diagnostics());
+                throw new com.executionstudio.error.CompilationFailure(
+                    "Compilation failed for " + request.getSourceFile().getFileName() + ":\n" + diagMsg,
+                    compilationResult.diagnostics()
+                );
             }
 
             // === Phase 2: Initialize Context ===

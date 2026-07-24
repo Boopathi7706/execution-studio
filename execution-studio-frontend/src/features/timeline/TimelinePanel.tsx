@@ -73,10 +73,16 @@ export const TimelinePanel: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
-      if (
+      const isMonacoEditor = !!(
         target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-      ) {
+        (target.closest?.('.monaco-editor') ||
+          target.closest?.('.monaco-component') ||
+          target.classList?.contains('inputarea') ||
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      )
+      if (isMonacoEditor) {
         return
       }
 

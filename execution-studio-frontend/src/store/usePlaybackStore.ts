@@ -6,16 +6,21 @@ import type {
   VariableView,
   FrameView,
   HeapObjectView,
+  ExecutionStatus,
 } from '@/types/visualization.types'
+import type { EducationalStep } from '@/types/educationalTimeline.types'
 import type { PlaybackMetadata } from '@/types/metadata.types'
 import { PlaybackClient } from '@/api/PlaybackClient'
+import { transformToEducationalTimeline } from '@/features/timeline/transformToEducationalTimeline'
 
 export interface TraceEvent {
-  sequence: number
-  sourceFile: string
-  className: string
-  methodName: string
-  lineNumber: number
+  sequence?: number
+  seq?: number
+  type?: string
+  sourceFile?: string
+  className?: string
+  methodName?: string
+  lineNumber?: number
   callStack?: {
     className?: string
     methodName?: string
@@ -32,11 +37,20 @@ export interface TraceEvent {
       declaredType?: string
       value?: any
     }[]
+    returnValue?: any
   }[]
   heap?: Record<string, any>
   heapObjects?: Record<string, any>
   exceptionType?: string
   exceptionMessage?: string
+  outputEvents?: { type: 'stdout' | 'stderr'; text: string; timestamp?: number }[]
+  returnValue?: any
+}
+
+export function getSimpleClassName(fullClassName?: string): string {
+  if (!fullClassName) return 'Object'
+  const parts = fullClassName.split('.')
+  return parts[parts.length - 1]
 }
 
 function parseDisplayValue(rawVal: any, declaredType?: string): DisplayValue {
@@ -118,6 +132,25 @@ function parseHeapObjects(rawHeap: any): Record<string, HeapObjectView> {
   return result
 }
 
+function computeConsoleStream(timeline: TraceEvent[], uptoIndex: number): { type: 'stdout' | 'stderr'; text: string; step?: number }[] {
+  const result: { type: 'stdout' | 'stderr'; text: string; step?: number }[] = []
+  if (!timeline || timeline.length === 0) return result
+  const maxIdx = Math.min(uptoIndex, timeline.length - 1)
+  for (let i = 0; i <= maxIdx; i++) {
+    const ev = timeline[i]
+    if (ev && ev.outputEvents && Array.isArray(ev.outputEvents)) {
+      ev.outputEvents.forEach((out: any) => {
+        result.push({
+          type: out.type === 'stderr' ? 'stderr' : 'stdout',
+          text: out.text || String(out),
+          step: i + 1,
+        })
+      })
+    }
+  }
+  return result
+}
+
 function eventToVisualizationModel(event: TraceEvent | any): VisualizationModel | null {
   if (!event) return null
 
@@ -133,20 +166,29 @@ function eventToVisualizationModel(event: TraceEvent | any): VisualizationModel 
       changed: false,
     }))
 
+    const rawClass = f.className || event.className || 'Test'
+    const rawMethod = f.methodName || event.methodName || 'main'
+    const methodName = rawMethod === '<init>' ? getSimpleClassName(rawClass) : rawMethod
+
     return {
-      className: f.className || event.className || 'Test',
-      methodName: f.methodName || event.methodName || 'main',
+      className: rawClass,
+      methodName,
       lineNumber: f.lineNumber || event.lineNumber || 1,
       locals,
       isActive: idx === 0,
+      returnValue: (idx === 0 && event.returnValue) ? parseDisplayValue(event.returnValue) : (f.returnValue ? parseDisplayValue(f.returnValue) : undefined),
     }
   })
 
   // 2. Fallback single frame if callStack array is empty
   if (frames.length === 0 && (event.className || event.methodName || event.lineNumber)) {
+    const rawClass = event.className || 'Test'
+    const rawMethod = event.methodName || 'main'
+    const methodName = rawMethod === '<init>' ? getSimpleClassName(rawClass) : rawMethod
+
     frames.push({
-      className: event.className || 'Test',
-      methodName: event.methodName || 'main',
+      className: rawClass,
+      methodName,
       lineNumber: event.lineNumber || 1,
       locals: [],
       isActive: true,
@@ -160,6 +202,22 @@ function eventToVisualizationModel(event: TraceEvent | any): VisualizationModel 
   const rawHeap = event.heap || event.heapObjects || {}
   const heapObjects = parseHeapObjects(rawHeap)
 
+  // 4. Return value, Output events & Exception info
+  const returnValue = event.returnValue ? parseDisplayValue(event.returnValue) : undefined
+  const outputEvents = event.outputEvents || []
+  const isException = event.type === 'exception' || !!event.exceptionType
+  const status: ExecutionStatus = isException ? 'EXCEPTION' : 'RUNNING'
+
+  const exceptionInfo = isException
+    ? {
+        exceptionType: event.exceptionType || 'java.lang.RuntimeException',
+        exceptionMessage: event.exceptionMessage || 'Uncaught exception occurred',
+        lineNumber: event.lineNumber || (activeFrame ? activeFrame.lineNumber : 1),
+        className: event.className || (activeFrame ? activeFrame.className : 'Main'),
+        methodName: activeFrame ? activeFrame.methodName : 'main',
+      }
+    : undefined
+
   return {
     stack: { frames },
     heap: { objects: heapObjects },
@@ -171,7 +229,43 @@ function eventToVisualizationModel(event: TraceEvent | any): VisualizationModel 
       currentStackFrame: activeFrame ? `${activeFrame.className}.${activeFrame.methodName}` : 'main',
       activeHighlights: [],
     },
-    status: 'RUNNING',
+    status,
+    returnValue,
+    outputEvents,
+    exceptionInfo,
+  }
+}
+
+const emptyModel: VisualizationModel = {
+  stack: { frames: [] },
+  heap: { objects: {} },
+  variables: { variables: [] },
+  graph: { nodes: [], edges: [] },
+  highlights: { currentLine: 1, currentMethod: 'main', currentStackFrame: 'main', activeHighlights: [] },
+  status: 'RUNNING',
+}
+
+export function buildStepVisualizationModel(
+  timeline: TraceEvent[],
+  index: number
+): VisualizationModel {
+  if (!timeline || timeline.length === 0) {
+    return emptyModel
+  }
+  const safeIndex = Math.max(0, Math.min(index, timeline.length - 1))
+  const currentEvent = timeline[safeIndex]
+  const postEvent = safeIndex + 1 < timeline.length ? timeline[safeIndex + 1] : currentEvent
+
+  const baseModel = eventToVisualizationModel(postEvent) || emptyModel
+  const line = currentEvent.lineNumber || baseModel.highlights.currentLine
+
+  return {
+    ...baseModel,
+    highlights: {
+      ...baseModel.highlights,
+      currentLine: line,
+      currentMethod: currentEvent.methodName || baseModel.highlights.currentMethod,
+    },
   }
 }
 
@@ -181,12 +275,15 @@ interface PlaybackState {
   executionId: string | null
   status: string | null
   timeline: TraceEvent[]
+  educationalTimeline: EducationalStep[]
+  currentStep: EducationalStep | null
   currentFrameIndex: number
   totalFrameCount: number
 
   currentModel: VisualizationModel | null
   previousModel: VisualizationModel | null
   metadata: PlaybackMetadata | null
+  consoleStream: { type: 'stdout' | 'stderr'; text: string; step?: number }[]
   isPlaying: boolean
   playSpeed: number
   connectionStatus: 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING'
@@ -221,6 +318,7 @@ interface PlaybackState {
   setSpeed: (speed: number) => void
   restart: () => Promise<void>
   clearError: () => void
+  resetStore: () => void
   destroy: () => void
   setSelectedObjectId: (id: string | null) => void
   setSelectedFrameIndex: (index: number | null) => void
@@ -270,19 +368,21 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
   }
 
   const updateFrameIndex = (index: number) => {
-    const { timeline, totalFrameCount, cache } = get()
+    const { educationalTimeline, timeline, totalFrameCount, cache } = get()
     if (totalFrameCount === 0) return
 
     const validIndex = Math.max(0, Math.min(index, totalFrameCount - 1))
-    const event = timeline[validIndex]
-    const model = eventToVisualizationModel(event)
+    const step = educationalTimeline[validIndex]
+    const model = step ? step.visualizationState : buildStepVisualizationModel(timeline, validIndex)
+    const consoleStream = step ? step.consoleState : computeConsoleStream(timeline, validIndex)
 
     let prevModel: VisualizationModel | null = null
     if (validIndex > 0) {
       if (cache[validIndex - 1]) {
         prevModel = cache[validIndex - 1]
-      } else if (timeline[validIndex - 1]) {
-        prevModel = eventToVisualizationModel(timeline[validIndex - 1])
+      } else {
+        const prevStep = educationalTimeline[validIndex - 1]
+        prevModel = prevStep ? prevStep.visualizationState : buildStepVisualizationModel(timeline, validIndex - 1)
       }
     }
 
@@ -290,6 +390,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
       currentFrameIndex: validIndex,
       previousModel: prevModel,
       currentModel: model,
+      consoleStream,
+      currentStep: step || null,
       selectedObjectId: null,
       selectedFrameIndex: null,
       metadata: {
@@ -306,12 +408,15 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     executionId: null,
     status: null,
     timeline: [],
+    educationalTimeline: [],
+    currentStep: null,
     currentFrameIndex: 0,
     totalFrameCount: 0,
 
     currentModel: null,
     previousModel: null,
     metadata: null,
+    consoleStream: [],
     isPlaying: false,
     playSpeed: 1.0,
     connectionStatus: 'DISCONNECTED',
@@ -327,23 +432,55 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     hoveredVariableId: null,
     hoveredObjectId: null,
 
+    resetStore: () => {
+      clearActiveTimer()
+      cancelPendingRequest()
+      set({
+        executionId: null,
+        sessionId: null,
+        status: null,
+        timeline: [],
+        educationalTimeline: [],
+        currentStep: null,
+        currentFrameIndex: 0,
+        totalFrameCount: 0,
+        currentModel: null,
+        previousModel: null,
+        consoleStream: [],
+        metadata: null,
+        isPlaying: false,
+        connectionStatus: 'DISCONNECTED',
+        error: null,
+        cache: {},
+        selectedObjectId: null,
+        selectedFrameIndex: null,
+        hoveredVariableId: null,
+        hoveredObjectId: null,
+      })
+    },
+
     loadTraceTimeline: (executionId: string, status: string, timeline: TraceEvent[]) => {
       clearActiveTimer()
       cancelPendingRequest()
 
-      const total = timeline.length
-      const initialEvent = timeline[0]
-      const model = eventToVisualizationModel(initialEvent)
+      const educationalTimeline = transformToEducationalTimeline(timeline)
+      const total = educationalTimeline.length || timeline.length
+      const firstStep = educationalTimeline[0]
+      const model = firstStep ? firstStep.visualizationState : buildStepVisualizationModel(timeline, 0)
+      const consoleStream = firstStep ? firstStep.consoleState : computeConsoleStream(timeline, 0)
 
       set({
         executionId,
         sessionId: executionId,
         status,
         timeline,
+        educationalTimeline,
+        currentStep: firstStep || null,
         currentFrameIndex: 0,
         totalFrameCount: total,
         currentModel: model,
         previousModel: null,
+        consoleStream,
         isPlaying: false,
         connectionStatus: 'CONNECTED',
         metadata: {

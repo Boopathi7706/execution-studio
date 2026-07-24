@@ -65,18 +65,24 @@ public class JavacCompiler implements Compiler {
 
             boolean success = task.call();
 
-            List<String> diagnostics = diagnosticCollector.getDiagnostics().stream()
-                .map(d -> String.format("%s:%d: %s: %s",
+            List<CompilationDiagnostic> structuredDiagnostics = diagnosticCollector.getDiagnostics().stream()
+                .map(d -> new CompilationDiagnostic(
+                    d.getKind() != null ? d.getKind().name() : "ERROR",
                     d.getSource() != null ? d.getSource().getName() : "<unknown>",
                     d.getLineNumber(),
-                    d.getKind(),
-                    d.getMessage(null)))
+                    d.getColumnNumber(),
+                    d.getMessage(null)
+                ))
+                .toList();
+
+            List<String> diagnostics = structuredDiagnostics.stream()
+                .map(d -> String.format("%s:%d: %s: %s", d.file(), d.line(), d.severity(), d.message()))
                 .toList();
 
             if (!success) {
                 log.error("Compilation failed with {} diagnostic(s)", diagnostics.size());
                 diagnostics.forEach(d -> log.error("  {}", d));
-                return new CompilationResult(false, null, List.of(), outputDir, diagnostics);
+                return new CompilationResult(false, null, List.of(), outputDir, diagnostics, structuredDiagnostics);
             }
 
             // Discover all produced class files
@@ -84,7 +90,7 @@ public class JavacCompiler implements Compiler {
             String mainClassName = detectMainClass(sourceFile);
 
             log.info("Compilation successful: mainClass={}, allClasses={}", mainClassName, allClassNames);
-            return new CompilationResult(true, mainClassName, allClassNames, outputDir, diagnostics);
+            return new CompilationResult(true, mainClassName, allClassNames, outputDir, diagnostics, structuredDiagnostics);
 
         } catch (IOException e) {
             throw new CompilationFailure("Compiler I/O error", e);

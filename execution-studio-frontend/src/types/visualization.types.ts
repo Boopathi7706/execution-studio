@@ -1,7 +1,7 @@
 export type NodeType = 'OBJECT' | 'ARRAY' | 'STRING' | 'PRIMITIVE' | 'NULL'
 export type EdgeType = 'FIELD' | 'ARRAY_ELEMENT' | 'VARIABLE_REFERENCE'
 export type HighlightReason = 'CURRENT' | 'CHANGED' | 'CREATED' | 'REMOVED' | 'SELECTED'
-export type ExecutionStatus = 'RUNNING' | 'COMPLETED' | 'EXCEPTION'
+export type ExecutionStatus = 'RUNNING' | 'COMPLETED' | 'EXCEPTION' | 'FAILED'
 
 export type DisplayValueKind =
   | 'int'
@@ -39,6 +39,7 @@ export interface FrameView {
   lineNumber: number
   locals: VariableView[]
   isActive: boolean
+  returnValue?: DisplayValue
 }
 
 export interface StackView {
@@ -85,6 +86,29 @@ export interface HighlightState {
   activeHighlights: Highlight[]
 }
 
+export interface OutputEvent {
+  type: 'stdout' | 'stderr'
+  text: string
+  timestamp?: number
+  step?: number
+}
+
+export interface CompilationDiagnostic {
+  severity: string
+  file: string
+  line: number
+  column: number
+  message: string
+}
+
+export interface ExceptionInfo {
+  exceptionType: string
+  exceptionMessage?: string
+  lineNumber?: number
+  className?: string
+  methodName?: string
+}
+
 export interface VisualizationModel {
   stack: StackView
   heap: HeapView
@@ -92,6 +116,10 @@ export interface VisualizationModel {
   graph: ReferenceGraph
   highlights: HighlightState
   status: ExecutionStatus
+  returnValue?: DisplayValue
+  outputEvents?: OutputEvent[]
+  exceptionInfo?: ExceptionInfo
+  compilationDiagnostics?: CompilationDiagnostic[]
 }
 
 export interface VariablesView {

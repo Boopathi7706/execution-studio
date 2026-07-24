@@ -28,10 +28,31 @@ public class LineLevelCaptureStrategy implements CaptureStrategy {
 
     private final ExecutionContext context;
     private final ObjectGraphTraverser traverser;
+    private final List<OutputLogEntry> pendingOutputEntries = Collections.synchronizedList(new ArrayList<>());
+    private volatile HeapValue pendingReturnValue = null;
 
     public LineLevelCaptureStrategy(ExecutionContext context, ObjectGraphTraverser traverser) {
         this.context = context;
         this.traverser = traverser;
+    }
+
+    @Override
+    public void onOutput(OutputLogEntry entry) {
+        if (entry != null) {
+            pendingOutputEntries.add(entry);
+        }
+    }
+
+    @Override
+    public void onMethodExit(MethodExitContext ctx) {
+        if (ctx != null && ctx.returnValue() != null) {
+            try {
+                Map<String, HeapObject> tempHeap = new LinkedHashMap<>();
+                this.pendingReturnValue = traverser.traverse(ctx.returnValue(), 0, tempHeap);
+            } catch (Exception e) {
+                log.trace("Failed to traverse method exit return value: {}", e.getMessage());
+            }
+        }
     }
 
     @Override
@@ -54,6 +75,15 @@ public class LineLevelCaptureStrategy implements CaptureStrategy {
             Map<String, HeapObject> heapCollector = new LinkedHashMap<>();
             List<FrameSnapshot> callStack = captureCallStack(thread, heapCollector);
 
+            // Drain output buffer & pending return value
+            List<OutputLogEntry> stepOutput = new ArrayList<>();
+            synchronized (pendingOutputEntries) {
+                stepOutput.addAll(pendingOutputEntries);
+                pendingOutputEntries.clear();
+            }
+            HeapValue stepReturnVal = this.pendingReturnValue;
+            this.pendingReturnValue = null;
+
             // Record statistics
             int seq = context.getSequenceGenerator().next();
             context.getStatisticsCollector().recordStackDepth(callStack.size());
@@ -63,7 +93,7 @@ public class LineLevelCaptureStrategy implements CaptureStrategy {
             // Build the event
             LineEvent event = new LineEvent(
                 seq, sourceFile, className, methodName, lineNumber,
-                callStack, heapCollector
+                callStack, heapCollector, stepOutput, stepReturnVal
             );
 
             context.getStatisticsCollector().recordEvent(event);
@@ -103,11 +133,42 @@ public class LineLevelCaptureStrategy implements CaptureStrategy {
                 callStack = List.of();
             }
 
+            // Drain output buffer
+            List<OutputLogEntry> stepOutput = new ArrayList<>();
+            synchronized (pendingOutputEntries) {
+                stepOutput.addAll(pendingOutputEntries);
+                pendingOutputEntries.clear();
+            }
+
+            // Construct standard JVM exception output as stderr entry
+            StringBuilder jvmExText = new StringBuilder();
+            jvmExText.append("Exception in thread \"main\" ").append(exceptionType);
+            if (exceptionMessage != null && !exceptionMessage.isEmpty()) {
+                jvmExText.append(": ").append(exceptionMessage);
+            }
+            jvmExText.append("\n");
+            if (callStack != null && !callStack.isEmpty()) {
+                for (FrameSnapshot frame : callStack) {
+                    String simpleClass = frame.className().contains(".")
+                        ? frame.className().substring(frame.className().lastIndexOf('.') + 1)
+                        : frame.className();
+                    jvmExText.append("\tat ").append(frame.className()).append(".").append(frame.methodName())
+                        .append("(").append(simpleClass).append(".java:").append(frame.lineNumber()).append(")\n");
+                }
+            } else {
+                String simpleClass = className.contains(".")
+                    ? className.substring(className.lastIndexOf('.') + 1)
+                    : className;
+                jvmExText.append("\tat ").append(className).append(".").append(methodName)
+                    .append("(").append(simpleClass).append(".java:").append(lineNumber).append(")\n");
+            }
+            stepOutput.add(new OutputLogEntry("stderr", jvmExText.toString(), System.currentTimeMillis()));
+
             int seq = context.getSequenceGenerator().next();
 
             ExceptionEvent event = new ExceptionEvent(
                 seq, sourceFile, className, methodName, lineNumber,
-                exceptionType, exceptionMessage, callStack, heapCollector
+                exceptionType, exceptionMessage, callStack, heapCollector, stepOutput
             );
 
             context.getStatisticsCollector().recordEvent(event);
