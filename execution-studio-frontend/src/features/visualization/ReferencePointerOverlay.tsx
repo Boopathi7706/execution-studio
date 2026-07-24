@@ -1,17 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import type { FrameView } from '@/types/visualization.types'
 import { usePlaybackStore } from '@/store/usePlaybackStore'
-
-interface ArrowConnection {
-  id: string
-  varName: string
-  objectId: string
-  startX: number
-  startY: number
-  endX: number
-  endY: number
-  color: string
-}
+import {
+  isRectVisibleWithin,
+  calculateEdgeGeometry,
+  getReferenceArrowColor,
+  type CalculatedEdge,
+} from './geometryCalculations'
 
 interface ReferencePointerOverlayProps {
   frames: FrameView[]
@@ -20,26 +15,38 @@ interface ReferencePointerOverlayProps {
 }
 
 /**
- * Execution Studio V4 — Interactive SVG Reference Pointer Overlay.
- * Renders smooth animated bezier arrows connecting Call Stack variables to Heap objects.
- * Matches textbook arrow pointer diagrams (Red for LinkedList head/tail, Green for Arrays, Purple for Objects).
+ * Execution Studio V5 — Interactive SVG Reference Pointer Overlay.
+ * Connects Call Stack variables to Heap objects with animated bezier curves.
+ * Features stable DOM anchors (data-reference-source, data-heap-object-id),
+ * endpoint visibility checks (suppresses off-screen viewport pointers),
+ * and coalesced requestAnimationFrame measurement scheduling.
  */
 export const ReferencePointerOverlay: React.FC<ReferencePointerOverlayProps> = ({
   frames,
   objects,
   containerRef,
 }) => {
-  const [connections, setConnections] = useState<ArrowConnection[]>([])
+  const [connections, setConnections] = useState<CalculatedEdge[]>([])
   const hoveredVariableId = usePlaybackStore((s) => s.hoveredVariableId)
   const hoveredObjectId = usePlaybackStore((s) => s.hoveredObjectId)
+
+  const scheduledAnimFrame = useRef<number | null>(null)
 
   const updateConnections = useCallback(() => {
     if (!containerRef.current) return
     const containerRect = containerRef.current.getBoundingClientRect()
-    const newConns: ArrowConnection[] = []
+
+    // Find CallStack viewport & Heap viewport for visibility checking
+    const callStackVpEl = containerRef.current.querySelector('[data-viewport="callstack"]')
+    const heapVpEl = containerRef.current.querySelector('[data-viewport="heap"]')
+
+    const callStackVpRect = callStackVpEl ? callStackVpEl.getBoundingClientRect() : null
+    const heapVpRect = heapVpEl ? heapVpEl.getBoundingClientRect() : null
+
+    const newConns: CalculatedEdge[] = []
 
     // Collect all local variables from all frames
-    frames.forEach((frame) => {
+    frames.forEach((frame, frameIndex) => {
       const locals = frame.locals || []
       locals.forEach((v) => {
         const val = v.value
@@ -47,30 +54,38 @@ export const ReferencePointerOverlay: React.FC<ReferencePointerOverlayProps> = (
         const objId = val.objectId ?? (typeof val.value === 'string' && val.value.startsWith('obj_') ? val.value : null)
         if (!objId || val.kind === 'null' || val.value === 'null') return
 
-        const varEl = document.getElementById(`var-${frame.methodName}-${v.name}`)
-        const objEl = document.getElementById(`heap-obj-${objId}`)
+        // 1. Resolve source element via stable data attribute fallback to ID
+        const stableSourceSelector = `[data-reference-source="frame-${frameIndex}-${v.name}"]`
+        const sourceEl =
+          containerRef.current?.querySelector(stableSourceSelector) ||
+          document.getElementById(`var-${frame.methodName}-${v.name}`)
 
-        if (varEl && objEl) {
-          const vRect = varEl.getBoundingClientRect()
-          const oRect = objEl.getBoundingClientRect()
+        // 2. Resolve target element via stable data attribute fallback to ID
+        const stableTargetSelector = `[data-heap-object-id="${objId}"]`
+        const targetEl =
+          containerRef.current?.querySelector(stableTargetSelector) ||
+          document.getElementById(`heap-obj-${objId}`)
 
-          const startX = vRect.right - containerRect.left
-          const startY = vRect.top + vRect.height / 2 - containerRect.top
+        if (sourceEl && targetEl) {
+          const vRect = sourceEl.getBoundingClientRect()
+          const oRect = targetEl.getBoundingClientRect()
 
-          const endX = oRect.left - containerRect.left
-          const endY = oRect.top + oRect.height / 2 - containerRect.top
-
-          // Determine arrow color based on variable name or target structure
-          let color = '#c084fc' // default purple reference
-          const lowerName = v.name.toLowerCase()
-          if (lowerName.includes('head') || lowerName.includes('tail') || lowerName.includes('node') || lowerName.includes('list')) {
-            color = '#ef4444' // red for linked list references
-          } else if (lowerName.includes('arr') || lowerName.includes('array') || lowerName.includes('nums')) {
-            color = '#22c55e' // green for array references
+          // 3. Endpoint Visibility Checking
+          // If CallStack viewport exists, variable row MUST be visible within it
+          if (callStackVpRect && !isRectVisibleWithin(vRect, callStackVpRect)) {
+            return
           }
 
+          // If Heap viewport exists, target object MUST be visible within it
+          if (heapVpRect && !isRectVisibleWithin(oRect, heapVpRect)) {
+            return
+          }
+
+          const { startX, startY, endX, endY } = calculateEdgeGeometry(vRect, oRect, containerRect)
+          const color = getReferenceArrowColor(v.name)
+
           newConns.push({
-            id: `${frame.methodName}-${v.name}-${objId}`,
+            id: `${frame.methodName}-${frameIndex}-${v.name}-${objId}`,
             varName: v.name,
             objectId: objId,
             startX,
@@ -86,15 +101,50 @@ export const ReferencePointerOverlay: React.FC<ReferencePointerOverlayProps> = (
     setConnections(newConns)
   }, [frames, objects, containerRef])
 
-  useEffect(() => {
-    updateConnections()
-    window.addEventListener('resize', updateConnections)
-    const interval = setInterval(updateConnections, 300)
-    return () => {
-      window.removeEventListener('resize', updateConnections)
-      clearInterval(interval)
-    }
+  const scheduleUpdate = useCallback(() => {
+    if (scheduledAnimFrame.current !== null) return
+    scheduledAnimFrame.current = requestAnimationFrame(() => {
+      scheduledAnimFrame.current = null
+      updateConnections()
+    })
   }, [updateConnections])
+
+  useEffect(() => {
+    scheduleUpdate()
+
+    window.addEventListener('resize', scheduleUpdate)
+    window.addEventListener('scroll', scheduleUpdate, true)
+
+    let resizeObserver: ResizeObserver | null = null
+    if (containerRef.current && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        scheduleUpdate()
+      })
+
+      // Observe overlay container
+      resizeObserver.observe(containerRef.current)
+
+      // Observe CallStack viewport if present
+      const csVp = containerRef.current.querySelector('[data-viewport="callstack"]')
+      if (csVp) resizeObserver.observe(csVp)
+
+      // Observe Heap viewport if present
+      const heapVp = containerRef.current.querySelector('[data-viewport="heap"]')
+      if (heapVp) resizeObserver.observe(heapVp)
+    }
+
+    return () => {
+      window.removeEventListener('resize', scheduleUpdate)
+      window.removeEventListener('scroll', scheduleUpdate, true)
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+      }
+      if (scheduledAnimFrame.current !== null) {
+        cancelAnimationFrame(scheduledAnimFrame.current)
+        scheduledAnimFrame.current = null
+      }
+    }
+  }, [scheduleUpdate, containerRef])
 
   if (connections.length === 0) return null
 
@@ -155,7 +205,12 @@ export const ReferencePointerOverlay: React.FC<ReferencePointerOverlayProps> = (
         const controlY2 = c.endY
 
         const pathData = `M ${c.startX} ${c.startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${c.endX} ${c.endY}`
-        const markerId = c.color === '#ef4444' ? 'url(#arrow-red)' : c.color === '#22c55e' ? 'url(#arrow-green)' : 'url(#arrow-purple)'
+        const markerId =
+          c.color === '#ef4444'
+            ? 'url(#arrow-red)'
+            : c.color === '#22c55e'
+            ? 'url(#arrow-green)'
+            : 'url(#arrow-purple)'
 
         return (
           <g key={c.id}>
@@ -176,10 +231,9 @@ export const ReferencePointerOverlay: React.FC<ReferencePointerOverlayProps> = (
               fill="none"
               stroke={c.color}
               strokeWidth={isHovered ? '2.5' : '1.8'}
-              strokeDasharray={isHovered ? 'none' : undefined}
               markerEnd={markerId}
               style={{
-                transition: 'all 0.2s ease',
+                transition: 'all 0.15s ease',
               }}
             />
           </g>

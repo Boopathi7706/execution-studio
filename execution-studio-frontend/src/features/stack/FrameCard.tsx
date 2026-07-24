@@ -2,11 +2,13 @@ import React, { useRef, useEffect } from 'react'
 import type { FrameView, VariableView } from '@/types/visualization.types'
 import { usePlaybackStore } from '@/store/usePlaybackStore'
 import { formatMemoryAddress } from '@/utils/formatMemoryAddress'
+import { useHeapNavigation } from '@/features/visualization/useHeapNavigation'
 
 interface FrameCardProps {
   frame: FrameView
   isActive: boolean
   depth: number
+  frameIndex?: number
   onClick?: () => void
 }
 
@@ -14,12 +16,13 @@ interface FrameCardProps {
  * Execution Studio V4 — Educational Stack Frame Card.
  * Matches textbook call stack frame design with memory reference pointers.
  */
-export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive, depth: _depth, onClick }) => {
+export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive, depth: _depth, frameIndex = 0, onClick }) => {
   const cardRef = useRef<HTMLDivElement | null>(null)
   const isDeveloperMode = usePlaybackStore((s) => s.isDeveloperMode)
   const hoveredVariableId = usePlaybackStore((s) => s.hoveredVariableId)
   const setHoveredVariableId = usePlaybackStore((s) => s.setHoveredVariableId)
   const setHoveredObjectId = usePlaybackStore((s) => s.setHoveredObjectId)
+  const { navigateToHeapObject } = useHeapNavigation()
 
   useEffect(() => {
     if (isActive && cardRef.current) {
@@ -135,11 +138,27 @@ export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive
                 : (val?.valueString ?? String(val?.value ?? '?'))
 
             const isHovered = hoveredVariableId === v.name
+            const isNavigational = isRef && !isNull && !!targetObjId
+
+            const handleRefClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+              if (isNavigational && targetObjId) {
+                e.stopPropagation()
+                navigateToHeapObject(targetObjId)
+              }
+            }
+
+            const handleKeyDown = (e: React.KeyboardEvent) => {
+              if (isNavigational && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault()
+                handleRefClick(e)
+              }
+            }
 
             return (
               <div
                 key={v.name}
                 id={`var-${frame.methodName}-${v.name}`}
+                data-reference-source={`frame-${frameIndex}-${v.name}`}
                 onMouseEnter={() => {
                   setHoveredVariableId(v.name)
                   if (targetObjId) setHoveredObjectId(targetObjId)
@@ -148,6 +167,7 @@ export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive
                   setHoveredVariableId(null)
                   setHoveredObjectId(null)
                 }}
+                onClick={isNavigational ? handleRefClick : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -157,6 +177,7 @@ export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive
                   backgroundColor: isHovered ? 'rgba(192, 132, 252, 0.15)' : 'rgba(30, 41, 59, 0.5)',
                   border: isHovered ? '1px solid rgba(192, 132, 252, 0.4)' : '1px solid transparent',
                   transition: 'all 0.15s ease',
+                  cursor: isNavigational ? 'pointer' : 'default',
                 }}
               >
                 <span
@@ -171,6 +192,11 @@ export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive
                 </span>
 
                 <div
+                  role={isNavigational ? 'button' : undefined}
+                  tabIndex={isNavigational ? 0 : undefined}
+                  aria-label={isNavigational ? `Navigate to heap object ${targetObjId}` : undefined}
+                  onClick={isNavigational ? handleRefClick : undefined}
+                  onKeyDown={isNavigational ? handleKeyDown : undefined}
                   style={{
                     padding: '2px 8px',
                     borderRadius: '4px',
@@ -182,6 +208,8 @@ export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive
                     color: isNull ? '#94a3b8' : isRef ? '#c084fc' : '#38bdf8',
                     minWidth: '36px',
                     textAlign: 'center',
+                    cursor: isNavigational ? 'pointer' : 'default',
+                    outline: 'none',
                   }}
                 >
                   {displayValStr}

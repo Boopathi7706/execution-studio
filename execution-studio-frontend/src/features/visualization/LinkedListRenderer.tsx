@@ -61,6 +61,7 @@ export const LinkedListRenderer: React.FC<LinkedListRendererProps> = React.memo(
         backgroundColor: '#0f172a',
         border: '1.5px solid #ef4444',
         borderRadius: '10px',
+        width: 'fit-content',
         maxWidth: '100%',
         boxShadow: '0 4px 14px rgba(239, 68, 68, 0.12)',
       }}
@@ -81,7 +82,7 @@ export const LinkedListRenderer: React.FC<LinkedListRendererProps> = React.memo(
       </div>
 
       {/* Chain Container */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0', flexWrap: 'nowrap', width: 'max-content' }}>
         {chain.map((item, idx) => {
           const { obj, nextId, isLast } = item
           const hexAddress = formatMemoryAddress(obj.objectId, isDeveloperMode)

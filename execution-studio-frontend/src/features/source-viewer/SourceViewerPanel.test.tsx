@@ -168,4 +168,36 @@ describe('SourceViewerPanel and MonacoWrapper', () => {
     // Should call deltaDecorations to clear the old decoration ['decor-new'] with []
     expect(deltaDecorationsSpy).toHaveBeenCalledWith(['decor-new'], [])
   })
+
+  it('does NOT trigger revealLine when sourceCode changes without a playback navigation change', () => {
+    usePlaybackStore.setState({
+      connectionStatus: 'CONNECTED',
+      currentModel: {
+        stack: { frames: [] },
+        heap: { objects: {} },
+        variables: { variables: [] },
+        graph: { nodes: [], edges: [] },
+        highlights: {
+          currentLine: 5,
+          currentMethod: 'main',
+          currentStackFrame: 'Main',
+          activeHighlights: [],
+        },
+        status: 'RUNNING',
+      },
+      metadata: mockMetadata(0),
+    })
+
+    const { rerender } = render(<SourceViewerPanel />)
+
+    // Initial mount reveals line 5
+    expect(revealLineSpy).toHaveBeenCalledWith(5)
+    revealLineSpy.mockClear()
+
+    // Simulate user editing code (sourceCode updates while playback step remains index 0)
+    rerender(<SourceViewerPanel />)
+
+    // revealLineSpy MUST NOT be called when user edits source code
+    expect(revealLineSpy).not.toHaveBeenCalled()
+  })
 })

@@ -50,7 +50,9 @@ export const ObjectRenderer: React.FC<ObjectRendererProps> = React.memo(({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        minWidth: '180px',
+        width: 'fit-content',
+        minWidth: '220px',
+        maxWidth: 'min(420px, 100%)',
         backgroundColor: '#0f172a',
         border: '1.5px solid #a855f7',
         borderRadius: '10px',
@@ -58,6 +60,7 @@ export const ObjectRenderer: React.FC<ObjectRendererProps> = React.memo(({
         boxShadow: '0 4px 14px rgba(168, 85, 247, 0.12)',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
+        flex: '0 1 auto',
       }}
       className={isNew ? 'es-anim-fade-in' : undefined}
     >
@@ -177,14 +180,18 @@ const ObjectFieldRow: React.FC<ObjectFieldRowProps> = React.memo(({ fieldName, v
       >
         {fieldName}
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-        <span style={{ color: '#64748b', fontSize: '10px' }}>↓</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '240px' }}>
+        <span style={{ color: '#64748b', fontSize: '10px', flexShrink: 0 }}>↓</span>
         <span
           style={{
             fontFamily: 'var(--font-mono)',
             fontWeight: 'bold',
             color: isRef ? '#c084fc' : '#f8fafc',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
+          title={display}
         >
           {display}
         </span>

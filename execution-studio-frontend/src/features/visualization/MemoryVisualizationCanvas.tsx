@@ -124,13 +124,19 @@ export const MemoryVisualizationCanvas: React.FC<MemoryVisualizationCanvasProps>
 
   return (
     <div
+      data-viewport="heap"
       style={{
         width: '100%',
         height: '100%',
-        overflowY: 'auto',
+        minWidth: 0,
+        minHeight: 0,
+        overflow: 'auto',
         padding: '14px',
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignContent: 'flex-start',
+        alignItems: 'flex-start',
         gap: '14px',
       }}
       className="memory-visualization-canvas"
@@ -144,10 +150,14 @@ export const MemoryVisualizationCanvas: React.FC<MemoryVisualizationCanvasProps>
         return (
           <div
             key={obj.objectId}
+            id={`heap-obj-${obj.objectId}`}
+            data-heap-object-id={obj.objectId}
             style={{
               outline: isSelected ? '2px solid var(--accent-color)' : 'none',
               borderRadius: '10px',
               transition: 'outline 0.15s ease',
+              width: 'fit-content',
+              maxWidth: '100%',
             }}
           >
             <RendererFactory

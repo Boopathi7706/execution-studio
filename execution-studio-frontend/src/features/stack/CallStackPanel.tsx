@@ -38,6 +38,7 @@ export const CallStackPanel: React.FC = () => {
     <div
       tabIndex={0}
       aria-label="Call Stack Frames List"
+      data-viewport="callstack"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -59,6 +60,7 @@ export const CallStackPanel: React.FC = () => {
           <FrameCard
             key={`${frame.className}-${frame.methodName}-${index}`}
             frame={frame}
+            frameIndex={index}
             isActive={isHighlighted}
             depth={depth}
             onClick={() => setSelectedFrameIndex(index)}

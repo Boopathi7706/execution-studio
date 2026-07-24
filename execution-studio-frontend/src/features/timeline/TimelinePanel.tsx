@@ -148,14 +148,15 @@ export const TimelinePanel: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '12px',
+          flexWrap: 'wrap',
+          gap: '8px',
           backgroundColor: 'var(--bg-primary)',
           padding: '6px 12px',
           borderRadius: '6px',
           border: '1px solid var(--border-color)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
           <button
             onClick={firstFrame}
             disabled={!isConnected}

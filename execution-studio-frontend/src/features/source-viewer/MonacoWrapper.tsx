@@ -4,6 +4,7 @@ import Editor, { type Monaco } from '@monaco-editor/react'
 interface MonacoWrapperProps {
   sourceCode: string
   currentLine: number // 1-indexed
+  executionStepIndex?: number // Changes only during playback navigation
   theme?: 'vs-dark' | 'light'
   onChange?: (value: string) => void
   readOnly?: boolean
@@ -16,6 +17,7 @@ interface MonacoWrapperProps {
 export const MonacoWrapper: React.FC<MonacoWrapperProps> = ({
   sourceCode,
   currentLine,
+  executionStepIndex,
   theme = 'vs-dark',
   onChange,
   readOnly = false,
@@ -33,7 +35,7 @@ export const MonacoWrapper: React.FC<MonacoWrapperProps> = ({
     }
   }, [])
 
-  // Updates active line decorations and centers line in viewport if outside bounds
+  // Updates active line decorations without altering the visible editor scroll viewport
   const updateDecorations = useCallback(
     (line: number) => {
       const editor = editorRef.current
@@ -62,9 +64,6 @@ export const MonacoWrapper: React.FC<MonacoWrapperProps> = ({
         ]
 
         decorationsRef.current = editor.deltaDecorations(decorationsRef.current, newDecorations)
-
-        // Smooth scroll to executing line if it falls outside the viewport bounds
-        editor.revealLineInCenterIfOutsideViewport(line)
       } catch (err: unknown) {
         console.error('Error applying line decorations:', err)
       }
@@ -72,18 +71,31 @@ export const MonacoWrapper: React.FC<MonacoWrapperProps> = ({
     [clearDecorations],
   )
 
-  // Update decorations when currentLine shifts
+  // Scrolls visible viewport to the executing line ONLY during playback navigation
+  const revealExecutionLine = useCallback((line: number) => {
+    const editor = editorRef.current
+    if (!editor || line <= 0) return
+    try {
+      const lineCount = editor.getModel()?.getLineCount() || 0
+      if (line <= lineCount) {
+        editor.revealLineInCenterIfOutsideViewport(line)
+      }
+    } catch (err: unknown) {
+      console.error('Error revealing execution line:', err)
+    }
+  }, [])
+
+  // Update line highlight decorations when currentLine or sourceCode shifts
   useEffect(() => {
     updateDecorations(currentLine)
-  }, [currentLine, updateDecorations])
+  }, [currentLine, sourceCode, updateDecorations])
 
-  // Update decorations if source code changes
+  // Reveal execution line ONLY when actual playback navigation occurs (executionStepIndex changes)
   useEffect(() => {
-    clearDecorations()
-    if (editorRef.current) {
-      updateDecorations(currentLine)
+    if (executionStepIndex !== undefined) {
+      revealExecutionLine(currentLine)
     }
-  }, [sourceCode, currentLine, clearDecorations, updateDecorations])
+  }, [executionStepIndex, currentLine, revealExecutionLine])
 
   // Cleanup editor resources on unmount
   useEffect(() => {

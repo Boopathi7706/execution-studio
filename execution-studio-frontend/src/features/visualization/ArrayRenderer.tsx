@@ -54,6 +54,7 @@ export const ArrayRenderer: React.FC<ArrayRendererProps> = React.memo(({
         backgroundColor: '#0f172a',
         border: '1.5px solid #22c55e',
         borderRadius: '10px',
+        width: 'fit-content',
         maxWidth: '100%',
         boxShadow: '0 4px 14px rgba(34, 197, 94, 0.12)',
       }}
@@ -87,9 +88,9 @@ export const ArrayRenderer: React.FC<ArrayRendererProps> = React.memo(({
           (empty array)
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: 'fit-content' }}>
           {/* Main Array Block */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: 'max-content' }}>
             {/* Indices */}
             <div style={{ display: 'flex' }}>
               {keys.map((k) => (

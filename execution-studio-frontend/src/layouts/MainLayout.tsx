@@ -18,21 +18,23 @@ export const MainLayout: React.FC = () => {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        width: '100vw',
-        height: '100vh',
-        overflow: 'hidden',
+        width: '100%',
+        minHeight: '100vh',
+        height: 'auto',
+        overflow: 'visible',
         backgroundColor: '#0f172a',
         color: '#f8fafc',
       }}
     >
       <Header />
       {globalError && <ErrorBanner message={globalError} onClose={clearError} />}
-      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: '1 0 auto', display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
         <Outlet />
       </main>
       <Footer />
     </div>
   )
+
 }
 
 export default MainLayout

@@ -20,6 +20,7 @@ export const SourceViewerPanel: React.FC = () => {
   const [sourceCode, setSourceCode] = useState<string>(DEFAULT_JAVA_CODE)
   const currentModel = usePlaybackStore((state) => state.currentModel)
   const connectionStatus = usePlaybackStore((state) => state.connectionStatus)
+  const metadata = usePlaybackStore((state) => state.metadata)
   const currentFrameIndex = usePlaybackStore((state) => state.currentFrameIndex)
   const timeline = usePlaybackStore((state) => state.timeline)
 
@@ -27,6 +28,7 @@ export const SourceViewerPanel: React.FC = () => {
 
   const isConnected = connectionStatus === 'CONNECTED'
   const currentFrame = timeline[currentFrameIndex]
+  const executionStepIndex = metadata ? metadata.currentStepIndex : currentFrameIndex
 
   const currentLine: number =
     isConnected && typeof currentModel?.highlights?.currentLine === 'number'
@@ -116,6 +118,7 @@ export const SourceViewerPanel: React.FC = () => {
           sourceCode={sourceCode}
           onChange={setSourceCode}
           currentLine={currentLine}
+          executionStepIndex={executionStepIndex}
           theme="vs-dark"
           readOnly={false}
         />

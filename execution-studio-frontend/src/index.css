@@ -40,6 +40,31 @@
   --transition-fast: 0.15s ease;
   --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* ── Workspace Layout Invariants ──────────────────────────────────────────
+   *
+   * These are the semantic minimum-size tokens for the IDE layout.
+   * All layout constraints reference these values — do not duplicate them.
+   *
+   * Derivation:
+   *   header-min-height : measured from .app-header in App.css (min-height: 44px)
+   *   footer-height     : measured from .app-footer in App.css (height: 24px)
+   *   splitter-size     : thickness of each resizable drag handle
+   *   top-min-height    : editor needs ≥480px to display code comfortably
+   *   bottom-min-height : playback bar + console header needs ≥210px to be usable
+   *
+   * Page scroll invariant:
+   *   When viewport height < header + top-min + splitter + bottom-min + footer,
+   *   the document grows vertically and the body scrolls.
+   *   Panels are NEVER compressed below their minimums.
+   * ──────────────────────────────────────────────────────────────────────── */
+  --header-min-height: 44px;
+  --footer-height: 24px;
+  --splitter-size: 5px;
+  --workspace-top-min-height: 300px;
+  --workspace-bottom-min-height: 150px;
+  /* workspace outer padding (top+bottom) */
+  --workspace-padding: 12px;
+
   color-scheme: dark;
   font-family: var(--font-sans);
   background-color: var(--bg-primary);
@@ -49,19 +74,23 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
 body {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   background-color: var(--bg-primary);
   color: var(--text-primary);
 }
 
 #root {
+  min-height: 100vh;
+  height: auto;
   width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: visible;
 }
 
 /* Custom IDE Scrollbar styling */

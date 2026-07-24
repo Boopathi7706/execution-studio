@@ -1,4 +1,27 @@
-/* Desktop Debugger IDE Shell Layout Styles */
+/* ============================================================
+   WORKSPACE ROOT
+   ============================================================
+   workspace-root is the top-level workspace container.
+   It does NOT set height: 100% or overflow: hidden.
+   This ensures the page can scroll vertically when panel
+   minimums exceed the available viewport height.
+
+   Responsive breakpoint: 900px
+   Derivation:
+     editorMinWidth:        320px  (Monaco readable minimum)
+     splitter:                5px
+     vizMinWidth:           440px  (CallStack + Heap combined)
+     inner pair minimum:    765px
+     outer chrome (padding/borders): ~135px
+     total:                 ~900px
+
+   Below this threshold, Editor | Visualization switch to
+   vertical stacking so neither becomes a useless strip.
+   ============================================================ */
+.workspace-root {
+  width: 100%;
+  min-width: 0;
+}
 
 /* ============================================================
    RESIZER BAR
@@ -54,14 +77,16 @@
    HEADER & STATUS BAR STYLES
    ============================================================ */
 .app-header {
-  height: 44px;
+  min-height: 44px;
+  height: auto;
   background-color: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
+  padding: 4px 14px;
   flex-shrink: 0;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -283,3 +308,60 @@
 .es-anim-explanation-in {
   animation: es-explanation-in 0.22s ease-out both;
 }
+
+/* ============================================================
+   NARROW VIEWPORT — RESPONSIVE LAYOUT
+   ============================================================
+   Breakpoint: 900px
+   At this width, Editor | Visualization can no longer sit
+   side-by-side at their minimum usable widths:
+     editorMin(320) + splitter(5) + vizMin(440) = 765px
+     + outer chrome ≈ 900px total
+
+   In narrow mode, the top workspace horizontal Group switches
+   to vertical stacking. Each region gets its own minimum height
+   so neither is crushed.
+
+   Note: react-resizable-panels renders Group as a flex container.
+   We override its direction via the id selectors we assigned.
+   ============================================================ */
+@media (max-width: 900px) {
+  /* Stack Editor + Visualization vertically in narrow viewports */
+  #workspace-top-group {
+    flex-direction: column !important;
+  }
+
+  /* Give editor a reasonable height in stacked mode */
+  #panel-editor {
+    min-height: 320px !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    flex-basis: 320px !important;
+  }
+
+  /* Visualization takes remaining height */
+  #panel-viz {
+    min-height: 320px !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Reorient the horizontal resize handle to look vertical in stacked mode */
+  #workspace-top-group [data-separator] {
+    width: 100% !important;
+    height: var(--splitter-size) !important;
+    cursor: row-resize !important;
+  }
+}
+
+/* ============================================================
+   TEMPORARY HEAP REFERENCE NAVIGATION HIGHLIGHT
+   ============================================================ */
+[data-reference-target-active="true"] {
+  outline: 2.5px solid var(--accent-secondary) !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.45) !important;
+  transition: all 0.2s ease !important;
+}
+
