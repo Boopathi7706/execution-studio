@@ -1,6 +1,7 @@
 import React from 'react'
 import { usePlaybackStore } from '@/store/usePlaybackStore'
 import type { HeapObjectView } from '@/types/visualization.types'
+import { formatMemoryAddress } from '@/utils/formatMemoryAddress'
 
 interface FloatingObjectInspectorProps {
   objectId: string | null
@@ -8,24 +9,16 @@ interface FloatingObjectInspectorProps {
 }
 
 /**
- * Formats display values inside the floating inspector.
- */
-const formatInspectorValue = (kind: string, rawVal: string): string => {
-  if (kind === 'null' || rawVal === 'null') return 'null'
-  if (kind === 'string') {
-    if (rawVal.startsWith('"') && rawVal.endsWith('"')) return rawVal
-    return `"${rawVal}"`
-  }
-  if (kind === 'object_ref' || kind === 'array_ref') {
-    if (rawVal.includes('@')) return rawVal
-    return `@${rawVal}`
-  }
-  return rawVal
-}
-
-/**
- * Lightweight Floating Popover Object Inspector.
- * Opens on object selection without permanently reserving workspace layout space.
+ * Execution Studio V4 — Object Inspector Panel.
+ * Formatted like:
+ *   OBJECT INSPECTOR
+ *   Object: 0x2 (Node)
+ *   ┌──────────┬──────────┐
+ *   │ Field    │ Value    │
+ *   ├──────────┼──────────┤
+ *   │ data     │ 2        │
+ *   │ next     │ 0x3      │
+ *   └──────────┴──────────┘
  */
 export const FloatingObjectInspector: React.FC<FloatingObjectInspectorProps> = ({
   objectId,
@@ -33,6 +26,7 @@ export const FloatingObjectInspector: React.FC<FloatingObjectInspectorProps> = (
 }) => {
   const currentModel = usePlaybackStore((state) => state.currentModel)
   const connectionStatus = usePlaybackStore((state) => state.connectionStatus)
+  const isDeveloperMode = usePlaybackStore((state) => state.isDeveloperMode)
 
   const selectedObj: HeapObjectView | undefined =
     objectId && currentModel?.heap?.objects ? currentModel.heap.objects[objectId] : undefined
@@ -49,18 +43,20 @@ export const FloatingObjectInspector: React.FC<FloatingObjectInspectorProps> = (
 
   const fields = selectedObj.fieldsOrElements || {}
   const fieldKeys = Object.keys(fields)
+  const simpleName = simplifyClassName(selectedObj.classNameOrType)
+  const hexAddress = formatMemoryAddress(selectedObj.objectId, isDeveloperMode)
 
   return (
     <div
       style={{
         position: 'absolute',
-        top: '16px',
+        bottom: '16px',
         right: '16px',
         width: '260px',
-        backgroundColor: 'var(--bg-tertiary)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '6px',
-        boxShadow: 'var(--shadow-md)',
+        backgroundColor: '#0f172a',
+        border: '1.5px solid #38bdf8',
+        borderRadius: '8px',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
         zIndex: 100,
         display: 'flex',
         flexDirection: 'column',
@@ -68,28 +64,36 @@ export const FloatingObjectInspector: React.FC<FloatingObjectInspectorProps> = (
       }}
       className="floating-inspector-popover"
     >
-      {/* Popover Header */}
+      {/* Header */}
       <div
         style={{
           padding: '8px 12px',
-          backgroundColor: 'var(--bg-secondary)',
-          borderBottom: '1px solid var(--border-color)',
+          backgroundColor: 'rgba(56, 189, 248, 0.15)',
+          borderBottom: '1px solid #38bdf8',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
-        <span style={{ fontWeight: 'bold', fontSize: '12px', color: 'var(--text-primary)' }}>
-          🔍 Object Inspector
+        <span
+          style={{
+            fontWeight: 'bold',
+            fontSize: '11px',
+            color: '#38bdf8',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}
+        >
+          OBJECT INSPECTOR
         </span>
         <button
           onClick={onClose}
           style={{
             background: 'none',
             border: 'none',
-            color: 'var(--text-muted)',
+            color: '#94a3b8',
             cursor: 'pointer',
-            fontSize: '14px',
+            fontSize: '12px',
             fontWeight: 'bold',
           }}
           aria-label="Close inspector popover"
@@ -98,62 +102,63 @@ export const FloatingObjectInspector: React.FC<FloatingObjectInspectorProps> = (
         </button>
       </div>
 
-      {/* Popover Content Body */}
-      <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Class Type & ID</span>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              color: 'var(--accent-secondary)',
-            }}
-          >
-            {selectedObj.classNameOrType}@{selectedObj.objectId}
-          </span>
+      {/* Content */}
+      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#ef4444', fontFamily: 'var(--font-mono)' }}>
+          Object: {hexAddress} ({simpleName})
         </div>
 
-        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
-          <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-            Fields / Elements ({fieldKeys.length})
-          </span>
-          {fieldKeys.length === 0 ? (
-            <span style={{ fontSize: '11px', fontStyle: 'italic', color: 'var(--text-muted)' }}>
-              No internal fields
-            </span>
-          ) : (
-            fieldKeys.map((key) => {
-              const val = fields[key]
-              const formatted = formatInspectorValue(
-                val.kind,
-                val.value ?? val.valueString ?? '',
-              )
-              return (
-                <div
-                  key={key}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '11px',
-                    padding: '3px 0',
-                    borderBottom: '1px dashed var(--border-color)',
-                  }}
-                >
-                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                    {key}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-                    {formatted}
-                  </span>
-                </div>
-              )
-            })
-          )}
-        </div>
+        {/* Table */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'var(--font-mono)' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8', textAlign: 'left' }}>
+              <th style={{ padding: '4px 6px', fontWeight: 'bold' }}>Field</th>
+              <th style={{ padding: '4px 6px', fontWeight: 'bold' }}>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fieldKeys.length === 0 ? (
+              <tr>
+                <td colSpan={2} style={{ padding: '6px', color: '#64748b', fontStyle: 'italic' }}>
+                  (no fields)
+                </td>
+              </tr>
+            ) : (
+              fieldKeys.map((key) => {
+                const val = fields[key]
+                const isRef = val.kind === 'object_ref' || val.kind === 'array_ref' || !!val.objectId
+                const displayVal = formatValue(val, isDeveloperMode)
+                return (
+                  <tr key={key} style={{ borderBottom: '1px solid #1e293b' }}>
+                    <td style={{ padding: '4px 6px', color: '#f8fafc' }}>{key}</td>
+                    <td style={{ padding: '4px 6px', color: isRef ? '#c084fc' : '#38bdf8', fontWeight: 'bold' }}>
+                      {displayVal}
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   )
+}
+
+function formatValue(val: any, isDevMode: boolean): string {
+  if (!val) return '?'
+  if (val.kind === 'null' || val.value === 'null') return 'null'
+  if (val.kind === 'string') return `"${val.valueString ?? val.value ?? ''}"`
+  if (val.kind === 'object_ref' || val.kind === 'array_ref' || val.objectId) {
+    return formatMemoryAddress(val.objectId ?? val.valueString, isDevMode)
+  }
+  return String(val.valueString ?? val.value ?? '?')
+}
+
+function simplifyClassName(fullName: string): string {
+  if (!fullName) return 'Object'
+  const parts = fullName.split('.')
+  return parts[parts.length - 1] ?? fullName
 }
 
 export default FloatingObjectInspector

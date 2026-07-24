@@ -178,8 +178,8 @@ describe('Workspace Synchronization Integration Tests', () => {
       </div>,
     )
 
-    expect(screen.getByText('Test.java:10')).toBeDefined()
-    expect(screen.getByText('5')).toBeDefined()
+    expect(screen.getByText('Line 10')).toBeDefined()
+    expect(screen.getAllByText('5')[0]).toBeDefined()
 
     // Transition state to frame 2
     usePlaybackStore.setState({
@@ -197,8 +197,8 @@ describe('Workspace Synchronization Integration Tests', () => {
       </div>,
     )
 
-    expect(screen.getByText('Test.java:15')).toBeDefined()
-    expect(screen.getByText('10')).toBeDefined()
+    expect(screen.getByText('Line 15')).toBeDefined()
+    expect(screen.getAllByText('10')[0]).toBeDefined()
   })
 
   it('synchronizes stack frame selection with Variables Panel contents', () => {
@@ -272,8 +272,8 @@ describe('Workspace Synchronization Integration Tests', () => {
       </div>,
     )
 
-    expect(screen.getByText('param')).toBeDefined()
-    expect(screen.getByText('"hello"')).toBeDefined()
+    expect(screen.getAllByText('param')[0]).toBeDefined()
+    expect(screen.getAllByText(/hello/)[0]).toBeDefined()
 
     // Select second frame in Call Stack panel
     const mainFrameBtn = screen.getByText(/main/)

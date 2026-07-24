@@ -1,32 +1,19 @@
 import React, { useEffect, useRef } from 'react'
 import type { HeapObjectView, DisplayValue } from '@/types/visualization.types'
+import { usePlaybackStore } from '@/store/usePlaybackStore'
+import { formatMemoryAddress } from '@/utils/formatMemoryAddress'
 
 interface ArrayRendererProps {
-  /** Variable name(s) pointing to this array, e.g. ["cars", "arr"] */
   variableLabels: string[]
-  /** Heap object for the array */
   obj: HeapObjectView
-  /** Previous state of this same object (for change detection) */
   prevObj?: HeapObjectView
-  /** Called when a cell is clicked (object reference arrays) */
   onCellClick?: (objectId: string) => void
-  /** True if this object was newly allocated this step */
   isNew?: boolean
 }
 
 /**
- * Textbook-style Array Renderer.
- * Renders arrays as indexed cell boxes matching CS textbook diagrams.
- *
- * Example:
- *   cars
- *         0      1      2      3
- *   ┌──────┬──────┬──────┬──────┐
- *   │Volvo │ BMW  │ Ford │Mazda │
- *   └──────┴──────┴──────┴──────┘
- *
- * Changed cells animate with a border pulse.
- * New arrays fade in.
+ * Execution Studio V4 — Textbook Array Renderer.
+ * Renders arrays as a contiguous memory grid with index headers, array pointer, and separate length block.
  */
 export const ArrayRenderer: React.FC<ArrayRendererProps> = React.memo(({
   variableLabels,
@@ -36,6 +23,8 @@ export const ArrayRenderer: React.FC<ArrayRendererProps> = React.memo(({
   isNew = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
+  const isDeveloperMode = usePlaybackStore((s) => s.isDeveloperMode)
+
   const fields = obj.fieldsOrElements ?? {}
   const keys = Object.keys(fields).sort((a, b) => {
     const na = parseInt(a, 10)
@@ -44,121 +33,172 @@ export const ArrayRenderer: React.FC<ArrayRendererProps> = React.memo(({
     return a.localeCompare(b)
   })
 
-  // Fade in animation on mount if newly allocated
   useEffect(() => {
     if (isNew && containerRef.current) {
       containerRef.current.classList.add('es-anim-fade-in')
     }
   }, [isNew])
 
-  const typeName = obj.classNameOrType ?? '[]'
+  const addressHex = formatMemoryAddress(obj.objectId, isDeveloperMode)
+  const varPrefix = variableLabels.length > 0 ? variableLabels.join(', ') : 'Array'
 
   return (
     <div
       ref={containerRef}
+      id={`heap-obj-${obj.objectId}`}
       style={{
-        display: 'inline-flex',
+        display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
-        padding: '10px 14px',
-        backgroundColor: 'var(--bg-secondary)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '8px',
+        gap: '6px',
+        padding: '14px 16px',
+        backgroundColor: '#0f172a',
+        border: '1.5px solid #22c55e',
+        borderRadius: '10px',
         maxWidth: '100%',
+        boxShadow: '0 4px 14px rgba(34, 197, 94, 0.12)',
       }}
       className={isNew ? 'es-anim-fade-in' : undefined}
-      aria-label={`Array ${typeName}`}
     >
-      {/* Variable labels above the array */}
-      {variableLabels.length > 0 && (
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '2px' }}>
-          {variableLabels.map((label) => (
-            <span
-              key={label}
-              style={{
-                fontSize: '11px',
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--accent-secondary)',
-                fontWeight: 'bold',
-              }}
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Array type label */}
-      <span
-        style={{
-          fontSize: '10px',
-          color: 'var(--text-muted)',
-          fontFamily: 'var(--font-mono)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.4px',
-        }}
-      >
-        {typeName} [{keys.length}]
-      </span>
+      {/* Title & Memory Address */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span
+          style={{
+            fontSize: '13px',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 'bold',
+            color: '#22c55e',
+          }}
+        >
+          {varPrefix} ({addressHex})
+        </span>
+      </div>
 
       {keys.length === 0 ? (
         <div
           style={{
-            padding: '8px 12px',
-            border: '1px solid var(--border-color)',
-            borderRadius: '4px',
-            color: 'var(--text-muted)',
+            padding: '10px 14px',
+            border: '1px solid #334155',
+            borderRadius: '6px',
+            color: '#64748b',
             fontSize: '12px',
             fontStyle: 'italic',
           }}
         >
-          empty array
+          (empty array)
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {/* Index row */}
-          <div style={{ display: 'flex' }}>
-            {keys.map((k) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* Main Array Block */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {/* Indices */}
+            <div style={{ display: 'flex' }}>
+              {keys.map((k) => (
+                <div
+                  key={k}
+                  style={{
+                    width: '44px',
+                    textAlign: 'center',
+                    fontSize: '11px',
+                    color: '#22c55e',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {k}
+                </div>
+              ))}
+            </div>
+
+            {/* Grid Cells */}
+            <div
+              style={{
+                display: 'flex',
+                border: '2px solid #22c55e',
+                borderRadius: '6px',
+                overflow: 'hidden',
+                backgroundColor: '#020617',
+              }}
+            >
+              {keys.map((k, idx) => {
+                const val: DisplayValue = fields[k]
+                const prevVal = prevObj?.fieldsOrElements?.[k]
+                const changed =
+                  prevVal !== undefined &&
+                  (prevVal.valueString !== val.valueString || prevVal.objectId !== val.objectId)
+                const isRef = val.kind === 'object_ref' || val.kind === 'array_ref'
+                const displayVal = formatCellValue(val, isDeveloperMode)
+
+                return (
+                  <ArrayCell
+                    key={k}
+                    value={displayVal}
+                    isLast={idx === keys.length - 1}
+                    isChanged={changed}
+                    isRef={isRef}
+                    onClick={isRef && val.objectId ? () => onCellClick?.(val.objectId!) : undefined}
+                  />
+                )
+              })}
+            </div>
+
+            {/* Element Pointer Indicator under index 0 */}
+            <div style={{ display: 'flex', alignItems: 'center', marginTop: '2px' }}>
               <div
-                key={k}
                 style={{
-                  minWidth: '52px',
-                  textAlign: 'center',
-                  fontSize: '10px',
-                  color: 'var(--text-muted)',
+                  width: '44px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  color: '#22c55e',
+                  fontSize: '11px',
                   fontFamily: 'var(--font-mono)',
-                  padding: '1px 4px',
                 }}
               >
-                {k}
+                <span>↑</span>
+                <span style={{ fontSize: '10px', fontWeight: 'bold' }}>{varPrefix}[0]</span>
               </div>
-            ))}
+            </div>
           </div>
 
-          {/* Cell row */}
-          <div style={{ display: 'flex', border: '1px solid var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
-            {keys.map((k, idx) => {
-              const val: DisplayValue = fields[k]
-              const prevVal = prevObj?.fieldsOrElements?.[k]
-              const changed =
-                prevVal !== undefined &&
-                (prevVal.valueString !== val.valueString ||
-                  prevVal.objectId !== val.objectId)
-              const displayText = formatCellValue(val)
-              const isRef = val.kind === 'object_ref' || val.kind === 'array_ref'
-
-              return (
-                <ArrayCell
-                  key={k}
-                  index={idx}
-                  value={displayText}
-                  isLast={idx === keys.length - 1}
-                  isChanged={changed}
-                  isRef={isRef}
-                  onClick={isRef && val.objectId ? () => onCellClick?.(val.objectId!) : undefined}
-                />
-              )
-            })}
+          {/* Length Block */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              border: '2px solid #22c55e',
+              borderRadius: '6px',
+              backgroundColor: '#020617',
+              overflow: 'hidden',
+              minWidth: '64px',
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                color: '#22c55e',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                fontFamily: 'var(--font-mono)',
+                padding: '3px 8px',
+                width: '100%',
+                textAlign: 'center',
+                borderBottom: '1px solid #22c55e',
+              }}
+            >
+              length
+            </div>
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 'bold',
+                fontFamily: 'var(--font-mono)',
+                color: '#f8fafc',
+                padding: '8px 12px',
+              }}
+            >
+              {keys.length}
+            </div>
           </div>
         </div>
       )}
@@ -168,10 +208,7 @@ export const ArrayRenderer: React.FC<ArrayRendererProps> = React.memo(({
 
 ArrayRenderer.displayName = 'ArrayRenderer'
 
-// ── Array Cell ──────────────────────────────────────────────────────────────
-
 interface ArrayCellProps {
-  index: number
   value: string
   isLast: boolean
   isChanged: boolean
@@ -182,12 +219,10 @@ interface ArrayCellProps {
 const ArrayCell: React.FC<ArrayCellProps> = React.memo(({ value, isLast, isChanged, isRef, onClick }) => {
   const cellRef = useRef<HTMLDivElement>(null)
 
-  // Trigger pulse animation when cell value changes
   useEffect(() => {
     if (isChanged && cellRef.current) {
       const el = cellRef.current
       el.classList.remove('es-anim-cell-pulse')
-      // Force reflow so the animation replays
       void el.offsetWidth
       el.classList.add('es-anim-cell-pulse')
     }
@@ -198,20 +233,19 @@ const ArrayCell: React.FC<ArrayCellProps> = React.memo(({ value, isLast, isChang
       ref={cellRef}
       onClick={onClick}
       style={{
-        minWidth: '52px',
-        padding: '8px 6px',
-        textAlign: 'center',
-        fontSize: '12px',
+        width: '44px',
+        height: '40px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '13px',
         fontFamily: 'var(--font-mono)',
-        color: isRef ? 'var(--accent-secondary)' : 'var(--text-primary)',
-        borderRight: isLast ? 'none' : '1px solid var(--border-color)',
-        backgroundColor: isChanged ? undefined : 'transparent',
+        fontWeight: 'bold',
+        color: isRef ? '#c084fc' : '#f8fafc',
+        borderRight: isLast ? 'none' : '1px solid #334155',
+        backgroundColor: isChanged ? 'rgba(34, 197, 94, 0.25)' : 'transparent',
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'background-color 0.2s ease',
-        fontWeight: isRef ? 'bold' : 'normal',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
+        transition: 'all 0.2s ease',
       }}
       title={value}
     >
@@ -222,14 +256,12 @@ const ArrayCell: React.FC<ArrayCellProps> = React.memo(({ value, isLast, isChang
 
 ArrayCell.displayName = 'ArrayCell'
 
-// ── Format cell value for display ──────────────────────────────────────────
-function formatCellValue(val: DisplayValue): string {
+function formatCellValue(val: DisplayValue, isDevMode: boolean): string {
   if (!val) return '?'
   if (val.kind === 'null' || val.value === 'null') return 'null'
   if (val.kind === 'string') return `"${val.valueString ?? val.value ?? ''}"`
-  if (val.kind === 'object_ref' || val.kind === 'array_ref') {
-    const id = val.objectId ?? val.valueString
-    return id ? `@${id}` : '•'
+  if (val.kind === 'object_ref' || val.kind === 'array_ref' || val.objectId) {
+    return formatMemoryAddress(val.objectId ?? val.valueString, isDevMode)
   }
   return String(val.valueString ?? val.value ?? '?')
 }
