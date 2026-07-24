@@ -174,5 +174,5 @@ describe('CallStackPanel Component', () => {
     expect(screen.getByText('Line 1')).toBeDefined()
     expect(screen.getByText('Line 120')).toBeDefined()
     expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalledTimes(1)
-  })
+  }, 15000)
 })

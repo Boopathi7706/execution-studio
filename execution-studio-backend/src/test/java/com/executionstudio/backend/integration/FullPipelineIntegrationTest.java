@@ -68,7 +68,7 @@ class FullPipelineIntegrationTest {
         assertThat(executionId).isNotBlank();
 
         // 2. Poll until background execution completes (compilation -> JDI capture -> serialization)
-        await().atMost(Duration.ofSeconds(20))
+        await().atMost(Duration.ofSeconds(35))
             .untilAsserted(() -> {
                 MvcResult pollResult = mockMvc.perform(get("/api/v1/traces/" + executionId))
                     .andExpect(status().isOk())

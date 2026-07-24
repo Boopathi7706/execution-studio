@@ -32,6 +32,11 @@ export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive
 
   const allVars: VariableView[] = frame.locals || []
 
+  const displayMethodName =
+    frame.methodName === '<init>'
+      ? (frame.className ? frame.className.split('.').pop() : 'Object')
+      : frame.methodName
+
   return (
     <div
       ref={cardRef}
@@ -71,8 +76,22 @@ export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive
               fontFamily: 'var(--font-mono)',
             }}
           >
-            {frame.methodName}()
+            {displayMethodName}()
           </span>
+          {frame.returnValue && (
+            <span
+              style={{
+                fontSize: '11px',
+                color: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                padding: '1px 6px',
+                borderRadius: '4px',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+              }}
+            >
+              ↩ {frame.returnValue.valueString || String(frame.returnValue.value ?? 'null')}
+            </span>
+          )}
         </div>
         <span
           style={{

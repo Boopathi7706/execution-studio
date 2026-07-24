@@ -13,7 +13,8 @@ import org.slf4j.LoggerFactory;
 import java.util.Set;
 
 /**
- * JDI debug session implementation — with comprehensive JDI event flow instrumentation.
+ * JDI debug session implementation — with comprehensive JDI event flow
+ * instrumentation.
  */
 public class JdiDebugSession implements DebugSession {
 
@@ -47,6 +48,15 @@ public class JdiDebugSession implements DebugSession {
             exReq.enable();
             log.info("[INSTRUMENTATION] Uncaught ExceptionRequest enabled");
 
+            for (String className : userClasses) {
+                MethodExitRequest mer = erm.createMethodExitRequest();
+                mer.addClassFilter(className);
+                mer.enable();
+                log.info("[INSTRUMENTATION] MethodExitRequest enabled for class filter: {}", className);
+            }
+
+            startProcessStreamReaders(strategy);
+
             log.info("[INSTRUMENTATION] Calling vm.resume()");
             vm.resume();
 
@@ -74,22 +84,30 @@ public class JdiDebugSession implements DebugSession {
                 }
 
                 for (Event event : eventSet) {
-                    log.info("[INSTRUMENTATION] JDI Event Received: {} | Class: {}", event.getClass().getSimpleName(), event.getClass().getName());
+                    log.info("[INSTRUMENTATION] JDI Event Received: {} | Class: {}", event.getClass().getSimpleName(),
+                            event.getClass().getName());
 
                     if (event instanceof VMStartEvent vse) {
-                        log.info("[INSTRUMENTATION] VMStartEvent received on thread: {}", vse.thread() != null ? vse.thread().name() : "null");
+                        log.info("[INSTRUMENTATION] VMStartEvent received on thread: {}",
+                                vse.thread() != null ? vse.thread().name() : "null");
                     } else if (event instanceof ClassPrepareEvent cpe) {
-                        log.info("[INSTRUMENTATION] ClassPrepareEvent received for class: {}, thread: {}", cpe.referenceType().name(), cpe.thread().name());
+                        log.info("[INSTRUMENTATION] ClassPrepareEvent received for class: {}, thread: {}",
+                                cpe.referenceType().name(), cpe.thread().name());
                         handleClassPrepare(cpe, erm);
                     } else if (event instanceof StepEvent se) {
                         Location loc = se.location();
-                        log.info("[INSTRUMENTATION] StepEvent received | Class: {} | Method: {} | Line: {} | Thread: {}",
-                            loc.declaringType().name(), loc.method().name(), loc.lineNumber(), se.thread().name());
+                        log.info(
+                                "[INSTRUMENTATION] StepEvent received | Class: {} | Method: {} | Line: {} | Thread: {}",
+                                loc.declaringType().name(), loc.method().name(), loc.lineNumber(), se.thread().name());
                         running = handleStep(se, strategy, watchdog, erm);
                     } else if (event instanceof MethodEntryEvent mee) {
-                        log.info("[INSTRUMENTATION] MethodEntryEvent received | Method: {} | Thread: {}", mee.method().name(), mee.thread().name());
+                        log.info("[INSTRUMENTATION] MethodEntryEvent received | Method: {} | Thread: {}",
+                                mee.method().name(), mee.thread().name());
                     } else if (event instanceof MethodExitEvent mxe) {
-                        log.info("[INSTRUMENTATION] MethodExitEvent received | Method: {} | Thread: {}", mxe.method().name(), mxe.thread().name());
+                        log.info("[INSTRUMENTATION] MethodExitEvent received | Method: {} | Thread: {}",
+                                mxe.method().name(), mxe.thread().name());
+                        strategy.onMethodExit(new com.executionstudio.jdi.capture.MethodExitContext(mxe.thread(),
+                                mxe.location(), mxe.returnValue()));
                     } else if (event instanceof BreakpointEvent bpe) {
                         log.info("[INSTRUMENTATION] BreakpointEvent received at location: {}", bpe.location());
                     } else if (event instanceof ThreadStartEvent tse) {
@@ -97,7 +115,8 @@ public class JdiDebugSession implements DebugSession {
                     } else if (event instanceof ThreadDeathEvent tde) {
                         log.info("[INSTRUMENTATION] ThreadDeathEvent received for thread: {}", tde.thread().name());
                     } else if (event instanceof ExceptionEvent ee) {
-                        log.info("[INSTRUMENTATION] ExceptionEvent received at location: {} | Thread: {}", ee.location(), ee.thread().name());
+                        log.info("[INSTRUMENTATION] ExceptionEvent received at location: {} | Thread: {}",
+                                ee.location(), ee.thread().name());
                         handleException(ee, strategy);
                         running = false;
                     } else if (event instanceof VMDeathEvent) {
@@ -127,28 +146,32 @@ public class JdiDebugSession implements DebugSession {
         String className = event.referenceType().name();
         ThreadReference thread = event.thread();
         log.info("[INSTRUMENTATION] Handling ClassPrepareEvent for class: {}, thread id: {}, thread name: {}",
-            className, thread.uniqueID(), thread.name());
+                className, thread.uniqueID(), thread.name());
 
         // Log existing step requests deletion
         erm.stepRequests().stream()
-            .filter(sr -> sr.thread().equals(thread))
-            .forEach(sr -> {
-                log.info("[INSTRUMENTATION] Deleting existing StepRequest for thread id: {}, name: {}", thread.uniqueID(), thread.name());
-                erm.deleteEventRequest(sr);
-            });
+                .filter(sr -> sr.thread().equals(thread))
+                .forEach(sr -> {
+                    log.info("[INSTRUMENTATION] Deleting existing StepRequest for thread id: {}, name: {}",
+                            thread.uniqueID(), thread.name());
+                    erm.deleteEventRequest(sr);
+                });
 
         StepRequest stepRequest = createAndEnableStepRequest(thread, erm);
-        log.info("[INSTRUMENTATION] Created initial StepRequest for ClassPrepareEvent | Thread ID: {} | Thread Name: {} | Suspend Policy: {} | Step Size: STEP_LINE | Step Depth: STEP_INTO | Enabled: {}",
-            thread.uniqueID(), thread.name(), stepRequest.suspendPolicy(), stepRequest.isEnabled());
+        log.info(
+                "[INSTRUMENTATION] Created initial StepRequest for ClassPrepareEvent | Thread ID: {} | Thread Name: {} | Suspend Policy: {} | Step Size: STEP_LINE | Step Depth: STEP_INTO | Enabled: {}",
+                thread.uniqueID(), thread.name(), stepRequest.suspendPolicy(), stepRequest.isEnabled());
     }
 
     private boolean handleStep(StepEvent event, CaptureStrategy strategy,
-                                Watchdog watchdog, EventRequestManager erm) {
+            Watchdog watchdog, EventRequestManager erm) {
         Location location = event.location();
         String className = location.declaringType().name();
 
         if (!isUserClass(className)) {
-            log.info("[INSTRUMENTATION] StepEvent location is not a user class ({}), skipping capture & re-enabling StepRequest", className);
+            log.info(
+                    "[INSTRUMENTATION] StepEvent location is not a user class ({}), skipping capture & re-enabling StepRequest",
+                    className);
             reEnableStepRequest(event, erm);
             return true;
         }
@@ -170,18 +193,21 @@ public class JdiDebugSession implements DebugSession {
     private void reEnableStepRequest(StepEvent event, EventRequestManager erm) {
         try {
             ThreadReference thread = event.thread();
-            log.info("[INSTRUMENTATION] Re-enabling StepRequest for thread id: {}, name: {}", thread.uniqueID(), thread.name());
+            log.info("[INSTRUMENTATION] Re-enabling StepRequest for thread id: {}, name: {}", thread.uniqueID(),
+                    thread.name());
 
             erm.stepRequests().stream()
-                .filter(sr -> sr.thread().equals(thread))
-                .forEach(sr -> {
-                    log.info("[INSTRUMENTATION] Deleting previous StepRequest for thread id: {}, name: {}", thread.uniqueID(), thread.name());
-                    erm.deleteEventRequest(sr);
-                });
+                    .filter(sr -> sr.thread().equals(thread))
+                    .forEach(sr -> {
+                        log.info("[INSTRUMENTATION] Deleting previous StepRequest for thread id: {}, name: {}",
+                                thread.uniqueID(), thread.name());
+                        erm.deleteEventRequest(sr);
+                    });
 
             StepRequest stepRequest = createAndEnableStepRequest(thread, erm);
-            log.info("[INSTRUMENTATION] Re-created StepRequest | Thread ID: {} | Thread Name: {} | Suspend Policy: {} | Step Size: STEP_LINE | Step Depth: STEP_INTO | Enabled: {}",
-                thread.uniqueID(), thread.name(), stepRequest.suspendPolicy(), stepRequest.isEnabled());
+            log.info(
+                    "[INSTRUMENTATION] Re-created StepRequest | Thread ID: {} | Thread Name: {} | Suspend Policy: {} | Step Size: STEP_LINE | Step Depth: STEP_INTO | Enabled: {}",
+                    thread.uniqueID(), thread.name(), stepRequest.suspendPolicy(), stepRequest.isEnabled());
         } catch (Exception e) {
             log.error("[INSTRUMENTATION] Failed to recreate StepRequest: {}", e.getMessage(), e);
         }
@@ -189,8 +215,7 @@ public class JdiDebugSession implements DebugSession {
 
     private StepRequest createAndEnableStepRequest(ThreadReference thread, EventRequestManager erm) {
         StepRequest stepRequest = erm.createStepRequest(
-            thread, StepRequest.STEP_LINE, StepRequest.STEP_INTO
-        );
+                thread, StepRequest.STEP_LINE, StepRequest.STEP_INTO);
         stepRequest.addClassExclusionFilter("java.*");
         stepRequest.addClassExclusionFilter("javax.*");
         stepRequest.addClassExclusionFilter("sun.*");
@@ -204,14 +229,56 @@ public class JdiDebugSession implements DebugSession {
         Location location = event.location();
         if (location != null) {
             terminationReason = "uncaught_exception";
-            log.info("[INSTRUMENTATION] Handling ExceptionEvent at {}:{}", location.declaringType().name(), location.lineNumber());
+            log.info("[INSTRUMENTATION] Handling ExceptionEvent at {}:{}", location.declaringType().name(),
+                    location.lineNumber());
             strategy.onException(new ExceptionContext(
-                event.thread(), location, event.exception()));
+                    event.thread(), location, event.exception()));
         }
     }
 
     private boolean isUserClass(String className) {
         return userClasses.contains(className);
+    }
+
+    private void startProcessStreamReaders(CaptureStrategy strategy) {
+        try {
+            Process process = vm.process();
+            if (process == null)
+                return;
+
+            Thread stdoutThread = new Thread(() -> {
+                try (java.io.InputStreamReader reader = new java.io.InputStreamReader(
+                        process.getInputStream(), java.nio.charset.StandardCharsets.UTF_8)) {
+                    char[] buf = new char[1024];
+                    int n;
+                    while ((n = reader.read(buf, 0, buf.length)) != -1) {
+                        String text = new String(buf, 0, n);
+                        strategy.onOutput(new com.executionstudio.runtime.events.OutputLogEntry("stdout", text, System.currentTimeMillis()));
+                    }
+                } catch (Exception ignored) {
+                }
+            }, "debuggee-stdout-reader");
+            stdoutThread.setDaemon(true);
+            stdoutThread.start();
+
+            Thread stderrThread = new Thread(() -> {
+                try (java.io.InputStreamReader reader = new java.io.InputStreamReader(
+                        process.getErrorStream(), java.nio.charset.StandardCharsets.UTF_8)) {
+                    char[] buf = new char[1024];
+                    int n;
+                    while ((n = reader.read(buf, 0, buf.length)) != -1) {
+                        String text = new String(buf, 0, n);
+                        strategy.onOutput(new com.executionstudio.runtime.events.OutputLogEntry("stderr", text, System.currentTimeMillis()));
+                    }
+                } catch (Exception ignored) {
+                }
+            }, "debuggee-stderr-reader");
+            stderrThread.setDaemon(true);
+            stderrThread.start();
+
+        } catch (Exception e) {
+            log.trace("Could not attach process stream readers: {}", e.getMessage());
+        }
     }
 
     @Override

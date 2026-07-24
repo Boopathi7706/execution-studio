@@ -24,6 +24,7 @@ export interface AppState {
   checkHealth: () => Promise<void>
   submitTrace: (sourceCode: string, className: string) => Promise<string | null>
   clearError: () => void
+  resetExecutionState: () => void
   setCurrentExecutionId: (id: string | null) => void
 }
 
@@ -69,6 +70,7 @@ export const useAppStore = create<AppState>((set) => ({
       const message = error instanceof Error ? error.message : 'Trace submission failed'
       set({
         globalError: message,
+        executionStatus: 'FAILED',
         isSubmittingTrace: false,
       })
       return null
@@ -76,5 +78,12 @@ export const useAppStore = create<AppState>((set) => ({
   },
 
   clearError: () => set({ globalError: null }),
+  resetExecutionState: () =>
+    set({
+      currentExecutionId: null,
+      executionStatus: null,
+      globalError: null,
+      isSubmittingTrace: false,
+    }),
   setCurrentExecutionId: (id: string | null) => set({ currentExecutionId: id }),
 }))

@@ -64,7 +64,7 @@ export function useTracePolling({
         } else if (response.status === 'FAILED') {
           isPollingRef.current = false
           if (timerRef.current) clearInterval(timerRef.current)
-          onError('Backend trace execution failed.')
+          onError(response.errorMessage || 'Backend trace execution failed.')
         }
       } catch (err: unknown) {
         isPollingRef.current = false

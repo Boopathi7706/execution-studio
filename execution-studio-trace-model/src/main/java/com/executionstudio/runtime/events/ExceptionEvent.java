@@ -5,16 +5,6 @@ import java.util.Map;
 
 /**
  * An exception event captured when an uncaught exception terminates execution.
- *
- * @param seq              monotonically increasing sequence number
- * @param sourceFile       the source file name
- * @param className        the class where the exception occurred
- * @param methodName       the method where the exception occurred
- * @param lineNumber       the line where the exception occurred
- * @param exceptionType    the fully qualified exception class name
- * @param exceptionMessage the exception message (may be null)
- * @param callStack        the call stack at the point of the exception
- * @param heap             heap snapshot at the point of the exception
  */
 public record ExceptionEvent(
     int seq,
@@ -25,8 +15,23 @@ public record ExceptionEvent(
     String exceptionType,
     String exceptionMessage,
     List<FrameSnapshot> callStack,
-    Map<String, HeapObject> heap
+    Map<String, HeapObject> heap,
+    List<OutputLogEntry> outputEvents
 ) implements RuntimeEvent {
+
+    public ExceptionEvent(
+        int seq,
+        String sourceFile,
+        String className,
+        String methodName,
+        int lineNumber,
+        String exceptionType,
+        String exceptionMessage,
+        List<FrameSnapshot> callStack,
+        Map<String, HeapObject> heap
+    ) {
+        this(seq, sourceFile, className, methodName, lineNumber, exceptionType, exceptionMessage, callStack, heap, List.of());
+    }
 
     @Override
     public String type() {

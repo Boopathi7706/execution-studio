@@ -28,11 +28,12 @@ export const SourceViewerPanel: React.FC = () => {
   const isConnected = connectionStatus === 'CONNECTED'
   const currentFrame = timeline[currentFrameIndex]
 
-  const currentLine = isConnected && currentModel?.highlights?.currentLine
-    ? currentModel.highlights.currentLine
-    : currentFrame
-    ? currentFrame.lineNumber
-    : 0
+  const currentLine: number =
+    isConnected && typeof currentModel?.highlights?.currentLine === 'number'
+      ? currentModel.highlights.currentLine
+      : typeof currentFrame?.lineNumber === 'number'
+      ? currentFrame.lineNumber
+      : 1
 
   const handleRun = () => {
     runCode(sourceCode)

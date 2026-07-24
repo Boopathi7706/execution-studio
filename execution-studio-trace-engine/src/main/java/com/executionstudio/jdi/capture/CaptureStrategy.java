@@ -41,4 +41,14 @@ public interface CaptureStrategy {
      * Called when the VM exits normally.
      */
     void onVMDeath();
+
+    /**
+     * Called on MethodExitEvent when a method returns a value.
+     */
+    default void onMethodExit(MethodExitContext ctx) {}
+
+    /**
+     * Called when a stdout or stderr log line is captured.
+     */
+    default void onOutput(com.executionstudio.runtime.events.OutputLogEntry entry) {}
 }

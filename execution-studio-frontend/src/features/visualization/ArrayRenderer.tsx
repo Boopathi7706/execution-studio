@@ -125,7 +125,7 @@ export const ArrayRenderer: React.FC<ArrayRendererProps> = React.memo(({
                 const changed =
                   prevVal !== undefined &&
                   (prevVal.valueString !== val.valueString || prevVal.objectId !== val.objectId)
-                const isRef = val.kind === 'object_ref' || val.kind === 'array_ref'
+                const isRef = val.kind === 'object_ref' || val.kind === 'array_ref' || val.kind === 'reference' || !!val.objectId
                 const displayVal = formatCellValue(val, isDeveloperMode)
 
                 return (

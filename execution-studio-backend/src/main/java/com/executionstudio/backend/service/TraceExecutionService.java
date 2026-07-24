@@ -46,7 +46,8 @@ public class TraceExecutionService {
         return new TraceResponseDto(
             session.getExecutionId(),
             session.getStatus().name(),
-            session.getTimeline()
+            session.getTimeline(),
+            session.getErrorMessage()
         );
     }
 
@@ -61,7 +62,8 @@ public class TraceExecutionService {
         return new TraceResponseDto(
             session.getExecutionId(),
             session.getStatus().name(),
-            session.getTimeline()
+            session.getTimeline(),
+            session.getErrorMessage()
         );
     }
 

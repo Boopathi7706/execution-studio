@@ -9,6 +9,7 @@ export interface TraceStatusResponse {
   executionId: string
   status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | string
   timeline: unknown | null
+  errorMessage?: string | null
 }
 
 /**

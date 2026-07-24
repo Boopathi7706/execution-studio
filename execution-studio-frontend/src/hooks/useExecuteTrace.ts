@@ -25,6 +25,7 @@ export function useExecuteTrace() {
     (response: TraceStatusResponse) => {
       setStage('completed')
       setErrorMessage(null)
+      useAppStore.setState({ globalError: null, executionStatus: response.status })
       const events = Array.isArray(response.timeline) ? response.timeline : []
       loadTraceTimeline(response.executionId, response.status, events)
     },
@@ -34,6 +35,8 @@ export function useExecuteTrace() {
   const handleError = useCallback((err: string) => {
     setStage('failed')
     setErrorMessage(err)
+    useAppStore.setState({ globalError: err, executionStatus: 'FAILED' })
+    usePlaybackStore.setState({ error: err, connectionStatus: 'DISCONNECTED' })
   }, [])
 
   const handleStatusUpdate = useCallback((status: string) => {
@@ -56,6 +59,8 @@ export function useExecuteTrace() {
 
   const runCode = useCallback(
     async (sourceCode: string) => {
+      useAppStore.getState().resetExecutionState()
+      usePlaybackStore.getState().resetStore()
       setStage('submitting')
       setErrorMessage(null)
       const className = parseClassName(sourceCode)
@@ -67,6 +72,7 @@ export function useExecuteTrace() {
       } else {
         setStage('failed')
         setErrorMessage('Failed to submit trace execution to backend.')
+        usePlaybackStore.setState({ error: 'Failed to submit trace execution to backend.', connectionStatus: 'DISCONNECTED' })
       }
     },
     [submitTraceAction],
