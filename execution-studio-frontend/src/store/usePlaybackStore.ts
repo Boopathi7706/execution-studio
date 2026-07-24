@@ -195,6 +195,9 @@ interface PlaybackState {
   selectedObjectId: string | null
   selectedFrameIndex: number | null
   expandedObjects: Record<string, boolean>
+  isDeveloperMode: boolean
+  hoveredVariableId: string | null
+  hoveredObjectId: string | null
 
   // Internal references
   client: PlaybackClient
@@ -223,6 +226,9 @@ interface PlaybackState {
   setSelectedFrameIndex: (index: number | null) => void
   toggleObjectExpanded: (objectId: string) => void
   setObjectExpanded: (objectId: string, expanded: boolean) => void
+  setIsDeveloperMode: (isDev: boolean) => void
+  setHoveredVariableId: (id: string | null) => void
+  setHoveredObjectId: (id: string | null) => void
 }
 
 export const usePlaybackStore = create<PlaybackState>((set, get) => {
@@ -264,16 +270,25 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
   }
 
   const updateFrameIndex = (index: number) => {
-    const { timeline, totalFrameCount, currentModel } = get()
+    const { timeline, totalFrameCount, cache } = get()
     if (totalFrameCount === 0) return
 
     const validIndex = Math.max(0, Math.min(index, totalFrameCount - 1))
     const event = timeline[validIndex]
     const model = eventToVisualizationModel(event)
 
+    let prevModel: VisualizationModel | null = null
+    if (validIndex > 0) {
+      if (cache[validIndex - 1]) {
+        prevModel = cache[validIndex - 1]
+      } else if (timeline[validIndex - 1]) {
+        prevModel = eventToVisualizationModel(timeline[validIndex - 1])
+      }
+    }
+
     set({
       currentFrameIndex: validIndex,
-      previousModel: currentModel,
+      previousModel: prevModel,
       currentModel: model,
       selectedObjectId: null,
       selectedFrameIndex: null,
@@ -308,6 +323,9 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     selectedObjectId: null,
     selectedFrameIndex: null,
     expandedObjects: {},
+    isDeveloperMode: false,
+    hoveredVariableId: null,
+    hoveredObjectId: null,
 
     loadTraceTimeline: (executionId: string, status: string, timeline: TraceEvent[]) => {
       clearActiveTimer()
@@ -684,6 +702,10 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         },
       })
     },
+
+    setIsDeveloperMode: (isDev: boolean) => set({ isDeveloperMode: isDev }),
+    setHoveredVariableId: (id: string | null) => set({ hoveredVariableId: id }),
+    setHoveredObjectId: (id: string | null) => set({ hoveredObjectId: id }),
 
     destroy: () => {
       clearActiveTimer()

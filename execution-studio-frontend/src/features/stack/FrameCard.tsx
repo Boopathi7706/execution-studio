@@ -1,5 +1,7 @@
 import React, { useRef, useEffect } from 'react'
-import type { FrameView } from '@/types/visualization.types'
+import type { FrameView, VariableView } from '@/types/visualization.types'
+import { usePlaybackStore } from '@/store/usePlaybackStore'
+import { formatMemoryAddress } from '@/utils/formatMemoryAddress'
 
 interface FrameCardProps {
   frame: FrameView
@@ -9,179 +11,170 @@ interface FrameCardProps {
 }
 
 /**
- * Extracts the simple class name and appends .java.
- * Correctly strips packages and nested/anonymous classes ($).
+ * Execution Studio V4 — Educational Stack Frame Card.
+ * Matches textbook call stack frame design with memory reference pointers.
  */
-function getSourceFileName(className: string): string {
-  if (!className) return 'UnknownSource'
-  const parts = className.split('.')
-  const simpleName = parts[parts.length - 1]
-  const mainClass = simpleName.split('$')[0]
-  return `${mainClass}.java`
-}
+export const FrameCard: React.FC<FrameCardProps> = React.memo(({ frame, isActive, depth: _depth, onClick }) => {
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  const isDeveloperMode = usePlaybackStore((s) => s.isDeveloperMode)
+  const hoveredVariableId = usePlaybackStore((s) => s.hoveredVariableId)
+  const setHoveredVariableId = usePlaybackStore((s) => s.setHoveredVariableId)
+  const setHoveredObjectId = usePlaybackStore((s) => s.setHoveredObjectId)
 
-/**
- * A memoized presentational frame card representing a single Java call stack frame.
- * Displays Method Name, Active Indicator, Class Name, Line Number, and expands
- * on selection to reveal Parameters, Local Variables, and Return details.
- */
-export const FrameCard: React.FC<FrameCardProps> = React.memo(
-  ({ frame, isActive, depth, onClick }) => {
-    const cardRef = useRef<HTMLDivElement | null>(null)
-    const sourceFile = getSourceFileName(frame.className)
-
-    useEffect(() => {
-      if (isActive && cardRef.current) {
-        cardRef.current.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-        })
-      }
-    }, [isActive])
-
-    const params = (frame.locals || []).filter(
-      (v) => v.scope === 'parameter' || v.name.startsWith('arg') || v.name === 'args',
-    )
-    const locals = (frame.locals || []).filter(
-      (v) => !params.some((p) => p.name === v.name),
-    )
-
-    const cardStyle: React.CSSProperties = {
-      padding: '10px 14px',
-      backgroundColor: isActive ? 'var(--accent-bg)' : 'transparent',
-      borderLeft: isActive ? '3px solid var(--accent-color)' : '3px solid transparent',
-      borderBottom: '1px solid var(--border-color)',
-      cursor: 'pointer',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '6px',
-      transition: 'background-color var(--transition-fast)',
+  useEffect(() => {
+    if (isActive && cardRef.current) {
+      cardRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      })
     }
+  }, [isActive])
 
-    return (
-      <div
-        ref={cardRef}
-        style={cardStyle}
-        onClick={onClick}
-        className={`frame-card ${isActive ? 'active' : ''}`}
-      >
-        {/* Frame Header Line */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Active Indicator Arrow Gutter */}
-          <div
+  const allVars: VariableView[] = frame.locals || []
+
+  return (
+    <div
+      ref={cardRef}
+      onClick={onClick}
+      style={{
+        padding: '12px 14px',
+        margin: '6px 10px',
+        backgroundColor: isActive ? 'rgba(147, 51, 234, 0.08)' : 'rgba(15, 23, 42, 0.6)',
+        border: isActive ? '1.5px solid rgba(192, 132, 252, 0.6)' : '1px solid var(--border-color)',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        transition: 'all 0.2s ease',
+        boxShadow: isActive ? '0 0 12px rgba(192, 132, 252, 0.15)' : 'none',
+      }}
+      className={`frame-card ${isActive ? 'active' : ''}`}
+    >
+      {/* Frame Header Line */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span
             style={{
-              width: '12px',
-              color: 'var(--accent-color)',
-              fontSize: '11px',
-              display: 'flex',
-              justifyContent: 'center',
-              fontWeight: 'bold',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: isActive ? '#c084fc' : '#64748b',
+              display: 'inline-block',
+            }}
+          />
+          <span
+            style={{
+              fontWeight: '700',
+              color: isActive ? '#f8fafc' : '#94a3b8',
+              fontSize: '13px',
+              fontFamily: 'var(--font-mono)',
             }}
           >
-            {isActive ? '▶' : ''}
-          </div>
+            {frame.methodName}()
+          </span>
+        </div>
+        <span
+          style={{
+            fontSize: '11px',
+            fontFamily: 'var(--font-mono)',
+            color: isActive ? '#c084fc' : '#64748b',
+          }}
+        >
+          Line {frame.lineNumber}
+        </span>
+      </div>
 
-          {/* Frame Details */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span
-                style={{
-                  fontWeight: isActive ? '600' : 'normal',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontSize: '13px',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                {frame.methodName}()
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>#{depth}</span>
-            </div>
-            <div
-              style={{
-                fontSize: '12px',
-                color: 'var(--text-muted)',
-                display: 'flex',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span
-                title={frame.className}
-                style={{
-                  textOverflow: 'ellipsis',
-                  overflow: 'hidden',
-                  whiteSpace: 'nowrap',
-                  maxWidth: '180px',
-                }}
-              >
-                {frame.className}
-              </span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-secondary)' }}>
-                {sourceFile}:{frame.lineNumber}
-              </span>
-            </div>
-          </div>
+      {/* Variables Section */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
+        <div
+          style={{
+            fontSize: '11px',
+            fontWeight: '600',
+            color: '#94a3b8',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}
+        >
+          Variables
         </div>
 
-        {/* Expanded Frame Details Accordion when Active/Selected */}
-        {isActive && (
-          <div
-            style={{
-              marginTop: '6px',
-              paddingTop: '8px',
-              borderTop: '1px dashed var(--border-color)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              fontSize: '11px',
-            }}
-          >
-            {/* Parameters */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                Parameters ({params.length})
-              </span>
-              {params.length === 0 ? (
-                <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>None</span>
-              ) : (
-                params.map((p) => (
-                  <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-                      {p.declaredType} {p.name}
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-secondary)' }}>
-                      = {p.value?.valueString || 'null'}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Local Variables */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingTop: '4px' }}>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                Local Variables ({locals.length})
-              </span>
-              {locals.length === 0 ? (
-                <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>None</span>
-              ) : (
-                locals.map((l) => (
-                  <div key={l.name} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-                      {l.declaredType} {l.name}
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-secondary)' }}>
-                      = {l.value?.valueString || 'null'}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+        {allVars.length === 0 ? (
+          <div style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic', paddingLeft: '4px' }}>
+            (no variables)
           </div>
+        ) : (
+          allVars.map((v) => {
+            const val = v.value
+            const isRef = val?.kind === 'object_ref' || val?.kind === 'array_ref' || !!val?.objectId
+            const isNull = val?.kind === 'null' || val?.valueString === 'null' || val?.value === 'null'
+            const targetObjId = val?.objectId ?? (typeof val?.value === 'string' && val?.value.startsWith('obj_') ? val?.value : null)
+            const displayValStr = isNull
+              ? 'null'
+              : isRef && targetObjId
+                ? formatMemoryAddress(targetObjId, isDeveloperMode)
+                : (val?.valueString ?? String(val?.value ?? '?'))
+
+            const isHovered = hoveredVariableId === v.name
+
+            return (
+              <div
+                key={v.name}
+                id={`var-${frame.methodName}-${v.name}`}
+                onMouseEnter={() => {
+                  setHoveredVariableId(v.name)
+                  if (targetObjId) setHoveredObjectId(targetObjId)
+                }}
+                onMouseLeave={() => {
+                  setHoveredVariableId(null)
+                  setHoveredObjectId(null)
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  backgroundColor: isHovered ? 'rgba(192, 132, 252, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                  border: isHovered ? '1px solid rgba(192, 132, 252, 0.4)' : '1px solid transparent',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '12px',
+                    color: '#f8fafc',
+                    fontWeight: '500',
+                  }}
+                >
+                  {v.name}
+                </span>
+
+                <div
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: isRef && !isNull ? 'rgba(192, 132, 252, 0.2)' : '#0f172a',
+                    border: `1px solid ${isRef && !isNull ? 'rgba(192, 132, 252, 0.5)' : '#334155'}`,
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    color: isNull ? '#94a3b8' : isRef ? '#c084fc' : '#38bdf8',
+                    minWidth: '36px',
+                    textAlign: 'center',
+                  }}
+                >
+                  {displayValStr}
+                </div>
+              </div>
+            )
+          })
         )}
       </div>
-    )
-  },
-)
+    </div>
+  )
+})
 
 FrameCard.displayName = 'FrameCard'
 export default FrameCard
